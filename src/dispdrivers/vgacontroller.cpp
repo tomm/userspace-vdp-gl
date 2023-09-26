@@ -25,10 +25,10 @@
 
 
 
-#include <alloca.h>
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
+#include <limits.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -79,22 +79,26 @@ void VGAController::init()
 void VGAController::suspendBackgroundPrimitiveExecution()
 {
   VGABaseController::suspendBackgroundPrimitiveExecution();
+#if 0
   if (m_primitiveProcessingSuspended == 1) {
     I2S1.int_clr.val     = 0xFFFFFFFF;
     I2S1.int_ena.out_eof = 0;
   }
+#endif
 }
 
 
 void VGAController::resumeBackgroundPrimitiveExecution()
 {
   VGABaseController::resumeBackgroundPrimitiveExecution();
+#if 0
   if (m_primitiveProcessingSuspended == 0) {
     if (m_isr_handle == nullptr)
       esp_intr_alloc(ETS_I2S1_INTR_SOURCE, ESP_INTR_FLAG_LEVEL1, VSyncInterrupt, this, &m_isr_handle);
     I2S1.int_clr.val     = 0xFFFFFFFF;
     I2S1.int_ena.out_eof = 1;
   }
+#endif
 }
 
 
@@ -122,14 +126,17 @@ void VGAController::setResolution(VGATimings const& timings, int viewPortWidth, 
 
 void VGAController::onSetupDMABuffer(lldesc_t volatile * buffer, bool isStartOfVertFrontPorch, int scan, bool isVisible, int visibleRow)
 {
+#if 0
   // generate interrupt at the beginning of vertical front porch
   if (isStartOfVertFrontPorch)
     buffer->eof = 1;
+#endif
 }
 
 
 void IRAM_ATTR VGAController::VSyncInterrupt(void * arg)
 {
+#if 0
   if (I2S1.int_st.out_eof) {
     auto VGACtrl = (VGAController*)arg;
     int64_t startTime = VGACtrl->backgroundPrimitiveTimeoutEnabled() ? esp_timer_get_time() : 0;
@@ -148,6 +155,7 @@ void IRAM_ATTR VGAController::VSyncInterrupt(void * arg)
     VGACtrl->showSprites(updateRect);
   }
   I2S1.int_clr.val = I2S1.int_st.val;
+#endif
 }
 
 
@@ -289,9 +297,11 @@ void IRAM_ATTR VGAController::VScroll(int scroll, Rect & updateRect)
     }
     const int Y1 = paintState().scrollingRegion.Y1;
     const int Y2 = paintState().scrollingRegion.Y2;
+#if 0
     for (int i = Y1, idx = Y1 * m_timings.scanCount; i <= Y2; ++i)
       for (int scan = 0; scan < m_timings.scanCount; ++scan, ++idx)
         setDMABufferView(m_viewPortRow * m_timings.scanCount + idx * viewPortBuffersPerLine + linePos, i, scan, m_viewPort, false);
+#endif /* 0 */
   }
 }
 
@@ -485,8 +495,9 @@ void IRAM_ATTR VGAController::copyRect(Rect const & source, Rect & updateRect)
 // no bounds check is done!
 void VGAController::readScreen(Rect const & rect, RGB888 * destBuf)
 {
+  auto frontbuffer = isDoubleBuffered() ? m_viewPortVisible : m_viewPort;
   for (int y = rect.Y1; y <= rect.Y2; ++y) {
-    uint8_t * row = (uint8_t*) m_viewPort[y];
+    uint8_t * row = (uint8_t*) frontbuffer[y];
     for (int x = rect.X1; x <= rect.X2; ++x, ++destBuf) {
       uint8_t rawpix = VGA_PIXELINROW(row, x);
       *destBuf = RGB888((rawpix & 3) * 85, ((rawpix >> 2) & 3) * 85, ((rawpix >> 4) & 3) * 85);

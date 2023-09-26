@@ -25,7 +25,7 @@
 
 
 
-#include <alloca.h>
+#include <mutex>
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
@@ -41,6 +41,8 @@
 #include "fabutils.h"
 #include "devdrivers/swgenerator.h"
 #include "dispdrivers/vgabasecontroller.h"
+
+#include "fake_fabgl.h"
 
 
 #pragma GCC optimize ("O2")
@@ -64,17 +66,19 @@ void VGABaseController::init()
 {
   CurrentVideoMode::set(VideoMode::VGA);
 
+  /*
   m_DMABuffers                   = nullptr;
   m_DMABuffersCount              = 0;
   m_DMABuffersHead               = nullptr;
   m_DMABuffersVisible            = nullptr;
+  */
   m_primitiveProcessingSuspended = 1; // >0 suspended
   m_isr_handle                   = nullptr;
   m_doubleBufferOverDMA          = false;
   m_viewPort                     = nullptr;
   m_viewPortMemoryPool           = nullptr;
 
-  m_GPIOStream.begin();
+  //m_GPIOStream.begin();
 }
 
 // initializer for 64 colors configuration
@@ -82,6 +86,7 @@ void VGABaseController::begin(gpio_num_t red1GPIO, gpio_num_t red0GPIO, gpio_num
 {
   init();
 
+#if 0
   // GPIO configuration for bit 0
   setupGPIO(red0GPIO,   VGA_RED_BIT,   GPIO_MODE_OUTPUT);
   setupGPIO(green0GPIO, VGA_GREEN_BIT, GPIO_MODE_OUTPUT);
@@ -95,7 +100,7 @@ void VGABaseController::begin(gpio_num_t red1GPIO, gpio_num_t red0GPIO, gpio_num
   // GPIO configuration for VSync and HSync
   setupGPIO(HSyncGPIO, VGA_HSYNC_BIT, GPIO_MODE_OUTPUT);
   setupGPIO(VSyncGPIO, VGA_VSYNC_BIT, GPIO_MODE_OUTPUT);
-
+#endif
 
   RGB222::lowBitOnly = false;
   m_bitsPerChannel = 2;
@@ -105,12 +110,15 @@ void VGABaseController::begin(gpio_num_t red1GPIO, gpio_num_t red0GPIO, gpio_num
 // initializer for default configuration
 void VGABaseController::begin()
 {
+#if 0
   begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
+#endif
 }
 
 
 void VGABaseController::end()
 {
+#if 0
   if (m_DMABuffers) {
     suspendBackgroundPrimitiveExecution();
     vTaskDelay(50 / portTICK_PERIOD_MS);
@@ -122,18 +130,23 @@ void VGABaseController::end()
     }
     freeBuffers();
   }
+#endif
 }
 
 
 void VGABaseController::setupGPIO(gpio_num_t gpio, int bit, gpio_mode_t mode)
 {
+#if 0
   configureGPIO(gpio, mode);
   gpio_matrix_out(gpio, I2S1O_DATA_OUT0_IDX + bit, false, false);
+#endif
 }
 
 
 void VGABaseController::freeBuffers()
 {
+  freeViewPort();
+#if 0
   if (m_DMABuffersCount > 0) {
     heap_caps_free((void*)m_HBlankLine_withVSync);
     heap_caps_free((void*)m_HBlankLine);
@@ -142,16 +155,26 @@ void VGABaseController::freeBuffers()
 
     setDMABuffersCount(0);
   }
+#endif
 }
 
 
 void VGABaseController::freeViewPort()
 {
+  printf("freeViewPort\n");
   if (m_viewPortMemoryPool) {
     for (auto poolPtr = m_viewPortMemoryPool; *poolPtr; ++poolPtr)
       heap_caps_free((void*) *poolPtr);
     heap_caps_free(m_viewPortMemoryPool);
     m_viewPortMemoryPool = nullptr;
+  }
+  for (int i=0; i<m_viewPortHeight; i++) {
+    if (m_viewPort) {
+      free(m_viewPort[i]);
+    }
+    if (isDoubleBuffered()) {
+      free(m_viewPortVisible[i]);
+    }
   }
   if (m_viewPort) {
     heap_caps_free(m_viewPort);
@@ -168,6 +191,7 @@ void VGABaseController::freeViewPort()
 // double buffer on DMA level.
 bool VGABaseController::setDMABuffersCount(int buffersCount)
 {
+#if 0
   if (buffersCount == 0) {
     if (m_DMABuffersVisible && m_DMABuffersVisible != m_DMABuffers)
       heap_caps_free( (void*) m_DMABuffersVisible );
@@ -219,6 +243,7 @@ bool VGABaseController::setDMABuffersCount(int buffersCount)
 
     m_DMABuffersCount = buffersCount;
   }
+#endif
 
   return true;
 }
@@ -345,12 +370,13 @@ void VGABaseController::resumeBackgroundPrimitiveExecution()
 
 void VGABaseController::startGPIOStream()
 {
-  m_GPIOStream.play(m_timings.frequency, m_DMABuffers);
+  //m_GPIOStream.play(m_timings.frequency, m_DMABuffers);
 }
 
 
 void VGABaseController::setResolution(char const * modeline, int viewPortWidth, int viewPortHeight, bool doubleBuffered)
 {
+  auto lock = this->lock();
   VGATimings timings;
   if (convertModelineToTimings(modeline, &timings))
     setResolution(timings, viewPortWidth, viewPortHeight, doubleBuffered);
@@ -393,7 +419,7 @@ void VGABaseController::setResolution(VGATimings const& timings, int viewPortWid
   m_rawFrameHeight = m_timings.VVisibleArea + m_timings.VFrontPorch + m_timings.VSyncPulse + m_timings.VBackPorch;
 
   // allocate DMA descriptors
-  setDMABuffersCount(calcRequiredDMABuffersCount(m_viewPortHeight));
+  //setDMABuffersCount(calcRequiredDMABuffersCount(m_viewPortHeight));
 
   // allocate the viewport
   allocateViewPort();
@@ -402,7 +428,7 @@ void VGABaseController::setResolution(VGATimings const& timings, int viewPortWid
   checkViewPortSize();
 
   // this may free space if m_viewPortHeight has been reduced
-  setDMABuffersCount(calcRequiredDMABuffersCount(m_viewPortHeight));
+  //setDMABuffersCount(calcRequiredDMABuffersCount(m_viewPortHeight));
 
   // fill buffers
   fillVertBuffers(0);
@@ -410,8 +436,10 @@ void VGABaseController::setResolution(VGATimings const& timings, int viewPortWid
 
   resetPaintState();
 
+#if 0
   if (m_doubleBufferOverDMA)
     m_DMABuffersHead->qe.stqe_next = (lldesc_t*) &m_DMABuffersVisible[0];
+#endif
 }
 
 
@@ -419,15 +447,16 @@ void VGABaseController::setResolution(VGATimings const& timings, int viewPortWid
 // to reduce memory allocation overhead try to allocate the minimum number of blocks.
 void VGABaseController::allocateViewPort(uint32_t allocCaps, int rowlen)
 {
-  int linesCount[FABGLIB_VIEWPORT_MEMORY_POOL_COUNT]; // where store number of lines for each pool
-  int poolsCount = 0; // number of allocated pools
-  int remainingLines = m_viewPortHeight;
-  m_viewPortHeight = 0; // m_viewPortHeight needs to be recalculated
+  //int linesCount[FABGLIB_VIEWPORT_MEMORY_POOL_COUNT]; // where store number of lines for each pool
+  //int poolsCount = 0; // number of allocated pools
+  //int remainingLines = m_viewPortHeight;
+  //m_viewPortHeight = 0; // m_viewPortHeight needs to be recalculated
 
-  if (isDoubleBuffered())
-    remainingLines *= 2;
+  //if (isDoubleBuffered())
+    //remainingLines *= 2;
 
   // allocate pools
+#if 0
   m_viewPortMemoryPool = (uint8_t * *) heap_caps_malloc(sizeof(uint8_t*) * (FABGLIB_VIEWPORT_MEMORY_POOL_COUNT + 1), MALLOC_CAP_32BIT);
   while (remainingLines > 0 && poolsCount < FABGLIB_VIEWPORT_MEMORY_POOL_COUNT) {
     int largestBlock = heap_caps_get_largest_free_block(allocCaps);
@@ -442,15 +471,24 @@ void VGABaseController::allocateViewPort(uint32_t allocCaps, int rowlen)
     ++poolsCount;
   }
   m_viewPortMemoryPool[poolsCount] = nullptr;
+#endif
 
   // fill m_viewPort[] with line pointers
   if (isDoubleBuffered()) {
-    m_viewPortHeight /= 2;
-    m_viewPortVisible = (volatile uint8_t * *) heap_caps_malloc(sizeof(uint8_t*) * m_viewPortHeight, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
+    m_viewPortVisible = (uint8_t * *) heap_caps_malloc(sizeof(uint8_t*) * m_viewPortHeight, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
   }
-  m_viewPort = (volatile uint8_t * *) heap_caps_malloc(sizeof(uint8_t*) * m_viewPortHeight, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
+  m_viewPort = (uint8_t * *) heap_caps_malloc(sizeof(uint8_t*) * m_viewPortHeight, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
   if (!isDoubleBuffered())
     m_viewPortVisible = m_viewPort;
+
+  for (int i=0; i<m_viewPortHeight; i++) {
+    m_viewPort[i] = (uint8_t*)malloc(rowlen);
+    if (isDoubleBuffered()) {
+      m_viewPortVisible[i] = (uint8_t*)malloc(rowlen);
+    }
+  }
+
+#if 0
   for (int p = 0, l = 0; p < poolsCount; ++p) {
     uint8_t * pool = m_viewPortMemoryPool[p];
     for (int i = 0; i < linesCount[p]; ++i) {
@@ -462,6 +500,7 @@ void VGABaseController::allocateViewPort(uint32_t allocCaps, int rowlen)
     }
     l += linesCount[p];
   }
+#endif
 }
 
 
@@ -645,6 +684,7 @@ void VGABaseController::fillVertBuffers(int offsetY)
 // Max length is 4092 bytes
 void VGABaseController::setDMABufferBlank(int index, void volatile * address, int length, int scan, bool isStartOfVertFrontPorch)
 {
+#if 0
   int size = (length + 3) & (~3);
   m_DMABuffers[index].eof    = 0;
   m_DMABuffers[index].size   = size;
@@ -658,6 +698,7 @@ void VGABaseController::setDMABufferBlank(int index, void volatile * address, in
     m_DMABuffersVisible[index].buf    = (uint8_t*) address;
     onSetupDMABuffer(&m_DMABuffersVisible[index], isStartOfVertFrontPorch, scan, false, 0);
   }
+#endif
 }
 
 
@@ -672,6 +713,7 @@ bool VGABaseController::isMultiScanBlackLine(int scan)
 // Max length is 4092 bytes
 void VGABaseController::setDMABufferView(int index, int row, int scan, volatile uint8_t * * viewPort, bool onVisibleDMA)
 {
+#if 0
   uint8_t * bufferPtr = nullptr;
   if (isMultiScanBlackLine(scan))
     bufferPtr = (uint8_t *) (m_HBlankLine + m_HLineSize - m_timings.HVisibleArea);  // this works only when HSYNC, FrontPorch and BackPorch are at the beginning of m_HBlankLine
@@ -681,6 +723,7 @@ void VGABaseController::setDMABufferView(int index, int row, int scan, volatile 
   DMABuffers[index].size   = (m_viewPortWidth + 3) & (~3);
   DMABuffers[index].length = m_viewPortWidth;
   DMABuffers[index].buf    = bufferPtr;
+#endif
 }
 
 
@@ -689,6 +732,7 @@ void VGABaseController::setDMABufferView(int index, int row, int scan, volatile 
 // Max length is 4092 bytes
 void VGABaseController::setDMABufferView(int index, int row, int scan, bool isStartOfVertFrontPorch)
 {
+#if 0
   setDMABufferView(index, row, scan, m_viewPort, false);
   if (!isMultiScanBlackLine(scan))
     onSetupDMABuffer(&m_DMABuffers[index], isStartOfVertFrontPorch, scan, true, row);
@@ -697,14 +741,17 @@ void VGABaseController::setDMABufferView(int index, int row, int scan, bool isSt
     if (!isMultiScanBlackLine(scan))
       onSetupDMABuffer(&m_DMABuffersVisible[index], isStartOfVertFrontPorch, scan, true, row);
   }
+#endif
 }
 
 
+#if 0
 void volatile * VGABaseController::getDMABuffer(int index, int * length)
 {
   *length = m_DMABuffers[index].length;
   return m_DMABuffers[index].buf;
 }
+#endif
 
 
 // buffer: buffer to fill (buffer size must be 32 bit aligned)
@@ -747,10 +794,12 @@ void VGABaseController::shrinkScreen(int shrinkX, int shrinkY)
 void IRAM_ATTR VGABaseController::swapBuffers()
 {
   tswap(m_viewPort, m_viewPortVisible);
+#if 0
   if (m_doubleBufferOverDMA) {
     tswap(m_DMABuffers, m_DMABuffersVisible);
     m_DMABuffersHead->qe.stqe_next = (lldesc_t*) &m_DMABuffersVisible[0];
   }
+#endif
 }
 
 

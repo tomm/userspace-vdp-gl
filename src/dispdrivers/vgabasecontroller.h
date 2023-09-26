@@ -38,6 +38,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <atomic>
+#include <mutex>
 
 #include "driver/gpio.h"
 
@@ -289,7 +290,9 @@ public:
 
   uint8_t createBlankRawPixel()                  { return m_HVSync; }
 
-
+  std::unique_lock<std::mutex> lock() {
+    return std::unique_lock<std::mutex>(m_bigLock);
+  }
 
 protected:
 
@@ -327,7 +330,7 @@ protected:
 
   virtual void onSetupDMABuffer(lldesc_t volatile * buffer, bool isStartOfVertFrontPorch, int scan, bool isVisible, int visibleRow) = 0;
 
-  void volatile * getDMABuffer(int index, int * length);
+  //void volatile * getDMABuffer(int index, int * length);
 
   void allocateViewPort(uint32_t allocCaps, int rowlen);
   virtual void allocateViewPort() = 0;
@@ -339,8 +342,8 @@ protected:
 
   // when double buffer is enabled the "drawing" view port is always m_viewPort, while the "visible" view port is always m_viewPortVisible
   // when double buffer is not enabled then m_viewPort = m_viewPortVisible
-  volatile uint8_t * *   m_viewPort;
-  volatile uint8_t * *   m_viewPortVisible;
+  uint8_t * *   m_viewPort;
+  uint8_t * *   m_viewPortVisible;
 
   // true: double buffering is implemented in DMA
   bool                   m_doubleBufferOverDMA;
@@ -366,6 +369,7 @@ private:
   // 1 = 8 colors, 2 = 64 colors, set by begin()
   int                    m_bitsPerChannel;
 
+  /*
   GPIOStream             m_GPIOStream;
 
   lldesc_t volatile *    m_DMABuffers;
@@ -375,6 +379,7 @@ private:
   // when double buffer is not enabled then m_DMABuffers = m_DMABuffersVisible
   lldesc_t volatile *    m_DMABuffersHead;
   lldesc_t volatile *    m_DMABuffersVisible;
+  */
 
   // These buffers contains a full line, with FrontPorch, Sync, BackPorch and blank visible area, in the
   // order specified by timings.HStartingBlock
@@ -385,6 +390,7 @@ private:
 
   int16_t                m_rawFrameHeight;
 
+  std::mutex             m_bigLock;
 };
 
 

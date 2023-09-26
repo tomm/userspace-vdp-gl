@@ -35,11 +35,6 @@
  */
 
 
-#ifdef ARDUINO
-  #include "Arduino.h"
-  #include "Stream.h"
-#endif
-
 #include <ctype.h>
 #include <string.h>
 
@@ -48,6 +43,7 @@
 #include "freertos/timers.h"
 #include "freertos/semphr.h"
 
+#include "fake_fabgl.h"
 #include "fabglconf.h"
 #include "canvas.h"
 #include "devdrivers/keyboard.h"
@@ -838,9 +834,10 @@ struct EmuState {
 
 #ifndef ARDUINO
 
+
 struct Print {
-  virtual size_t write(uint8_t) = 0;
-  virtual size_t write(const uint8_t * buffer, size_t size);
+  virtual size_t write(uint8_t) { return 0; }
+  virtual size_t write(const uint8_t * buffer, size_t size) { return 0; }
   size_t write(const char *str) {
     if (str == NULL)
         return 0;
@@ -999,9 +996,9 @@ public:
    *     Terminal.begin(&VGAController);
    *     Terminal.connectSerialPort(Serial);
    */
-  #ifdef ARDUINO
+  //#ifdef ARDUINO
   void connectSerialPort(HardwareSerial & serialPort, bool autoXONXOFF = true);
-  #endif
+  //#endif
 
   /**
    * @brief Connects a remote host using UART
@@ -1340,7 +1337,7 @@ public:
    */
   size_t write(uint8_t c);
 
-  using Print::write;
+  //using Print::write;
 
   /**
    * @brief Like localWrite() but sends also to serial port if connected
@@ -1590,13 +1587,13 @@ private:
   static void charsConsumerTask(void * pvParameters);
   static void keyboardReaderTask(void * pvParameters);
 
-  static void blinkTimerFunc(TimerHandle_t xTimer);
+  static void blinkTimerFunc(Terminal *term);
   void blinkText();
   bool enableBlinkingText(bool value);
   void blinkCursor();
   bool int_enableCursor(bool value);
 
-  static void IRAM_ATTR uart_isr(void *arg);
+  //static void IRAM_ATTR uart_isr(void *arg);
 
   uint8_t getNextCode(bool processCtrlCodes);
 
@@ -1715,7 +1712,7 @@ private:
   TimerHandle_t      m_blinkTimer;
 
   // main terminal mutex
-  volatile SemaphoreHandle_t m_mutex;
+  std::mutex         m_mutex;
 
   volatile bool      m_blinkingTextVisible;    // true = blinking text is currently visible
   volatile bool      m_blinkingTextEnabled;
@@ -1727,12 +1724,12 @@ private:
   int                m_maxColumns;
   int                m_maxRows;
 
-  #ifdef ARDUINO
+  //#ifdef ARDUINO
   // optional serial port
   // data from serial port is processed and displayed
   // keys from keyboard are processed and sent to serial port
   HardwareSerial *          m_serialPort;
-  #endif
+  //#endif
 
   // optional serial port (directly handled)
   // data from serial port is processed and displayed
@@ -1743,7 +1740,8 @@ private:
   volatile bool             m_uartRXEnabled;
 
   // contains characters to be processed (from write() calls)
-  volatile QueueHandle_t    m_inputQueue;
+  std::deque<uint8_t>       m_inputQueue;
+  std::mutex                m_inputQueueLock;
 
   // contains characters received and decoded from keyboard (or as replyes from ANSI-VT queries)
   QueueHandle_t             m_outputQueue;

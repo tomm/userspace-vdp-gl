@@ -33,13 +33,13 @@
 #include <ctype.h>
 #include <math.h>
 
-#include "driver/dac.h"
+//#include "driver/dac.h"
 #include "soc/i2s_reg.h"
 #include "driver/periph_ctrl.h"
 #include "soc/rtc.h"
-#include <soc/sens_reg.h>
-#include "esp_log.h"
-#include "driver/sigmadelta.h"
+//#include <soc/sens_reg.h>
+//#include "esp_log.h"
+//#include "driver/sigmadelta.h"
 
 
 #include "soundgen.h"
@@ -471,6 +471,7 @@ SoundGenerator::~SoundGenerator()
 {
   clear();
     
+#if 0
   if (m_isr_handle) {
     // cleanup DAC mode
     periph_module_disable(PERIPH_I2S0_MODULE);
@@ -486,6 +487,7 @@ SoundGenerator::~SoundGenerator()
     esp_timer_delete(m_timerHandle);
     m_timerHandle = nullptr;
   }
+#endif /* 0 */
   
   #ifdef FABGL_EMULATED
   SDL_CloseAudioDevice(m_device);
@@ -503,6 +505,7 @@ void SoundGenerator::clear()
 
 void SoundGenerator::setDMANode(int index, volatile uint16_t * buf, int len)
 {
+#if 0
   m_DMAChain[index].eof          = 1; // always generate interrupt
   m_DMAChain[index].sosf         = 0;
   m_DMAChain[index].owner        = 1;
@@ -511,19 +514,21 @@ void SoundGenerator::setDMANode(int index, volatile uint16_t * buf, int len)
   m_DMAChain[index].size         = len * sizeof(uint16_t);
   m_DMAChain[index].length       = len * sizeof(uint16_t);
   m_DMAChain[index].buf          = (uint8_t*) buf;
+#endif /* 0 */
 }
 
 
 void SoundGenerator::dac_init()
 {
-  m_DMAChain = (volatile lldesc_t *) heap_caps_malloc(2 * sizeof(lldesc_t), MALLOC_CAP_DMA);
+  //m_DMAChain = (volatile lldesc_t *) heap_caps_malloc(2 * sizeof(lldesc_t), MALLOC_CAP_DMA);
   
   for (int i = 0; i < 2; ++i) {
     m_sampleBuffer[i] = (uint16_t *) heap_caps_malloc(FABGL_SOUNDGEN_SAMPLE_BUFFER_SIZE * sizeof(uint16_t), MALLOC_CAP_DMA);
     for (int j = 0; j < FABGL_SOUNDGEN_SAMPLE_BUFFER_SIZE; ++j)
       m_sampleBuffer[i][j] = 0x7f00;
-    setDMANode(i, m_sampleBuffer[i], FABGL_SOUNDGEN_SAMPLE_BUFFER_SIZE);
+    //setDMANode(i, m_sampleBuffer[i], FABGL_SOUNDGEN_SAMPLE_BUFFER_SIZE);
   }
+#if 0
   m_DMAChain[1].sosf = 1;
   m_DMAChain[1].qe.stqe_next = (lldesc_t *) m_DMAChain; // closes DMA chain
     
@@ -580,11 +585,13 @@ void SoundGenerator::dac_init()
 
   dac_i2s_enable();
   dac_output_enable(m_gpio == GPIO_NUM_25 ? DAC_CHANNEL_1 : DAC_CHANNEL_2);
+#endif /* 0 */
 }
 
 
 void SoundGenerator::sigmadelta_init()
 {
+#if 0
   sigmadelta_config_t sigmadelta_cfg;
   sigmadelta_cfg.channel             = SIGMADELTA_CHANNEL_0;
   sigmadelta_cfg.sigmadelta_prescale = 10;
@@ -597,6 +604,7 @@ void SoundGenerator::sigmadelta_init()
   args.arg             = this;
   args.dispatch_method = ESP_TIMER_TASK;
   esp_timer_create(&args, &m_timerHandle);
+#endif /* 0 */
 }
 
 
@@ -623,9 +631,11 @@ void SoundGenerator::init()
     // handle automatic paramters
     if (m_genMethod == SoundGenMethod::Auto)
       m_genMethod = CurrentVideoMode::get() == VideoMode::CVBS ? SoundGenMethod::SigmaDelta : SoundGenMethod::DAC;
+#if 0
     if (m_gpio == GPIO_AUTO)
       m_gpio = m_genMethod == SoundGenMethod::DAC ? GPIO_NUM_25 : GPIO_NUM_23;
     
+#endif /* 0 */
     // actual init
     if (m_genMethod == SoundGenMethod::DAC)
       dac_init();
@@ -646,6 +656,7 @@ bool SoundGenerator::play(bool value)
   if (value != m_play) {
     init();
     
+#if 0
     if (m_genMethod == SoundGenMethod::DAC) {
       I2S0.conf.tx_start = value;
     } else {
@@ -654,6 +665,7 @@ bool SoundGenerator::play(bool value)
       else
         esp_timer_stop(m_timerHandle);
     }
+#endif /* 0 */
     
     #ifdef FABGL_EMULATED
     SDL_PauseAudioDevice(m_device, !value);
@@ -748,6 +760,7 @@ int IRAM_ATTR SoundGenerator::getSample()
 // used by DAC generator
 void IRAM_ATTR SoundGenerator::ISRHandler(void * arg)
 {
+#if 0
   if (I2S0.int_st.out_eof) {
 
     auto soundGenerator = (SoundGenerator *) arg;
@@ -760,15 +773,18 @@ void IRAM_ATTR SoundGenerator::ISRHandler(void * arg)
     
   }
   I2S0.int_clr.val = I2S0.int_st.val;
+#endif /* 0 */
 }
 
 
 // used by sigma-delta generator
 void SoundGenerator::timerHandler(void * args)
 {
+#if 0
   auto soundGenerator = (SoundGenerator *) args;
 
   sigmadelta_set_duty(SIGMADELTA_CHANNEL_0, soundGenerator->getSample());
+#endif /* 0 */
 }
 
 

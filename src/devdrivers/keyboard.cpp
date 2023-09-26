@@ -27,6 +27,9 @@
 
 #include <string.h>
 
+#ifdef USERSPACE
+#include "fabutils.h"
+#endif /* USERSPACE */
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
@@ -50,7 +53,6 @@ int Keyboard::scancodeToVirtualKeyTaskStackSize = FABGLIB_DEFAULT_SCODETOVK_TASK
 Keyboard::Keyboard()
   : m_keyboardAvailable(false),
     m_SCodeToVKConverterTask(nullptr),
-    m_virtualKeyQueue(nullptr),
     m_scancodeSet(2),
     m_lastDeadKey(VK_NONE),
     m_codepage(nullptr)
@@ -66,7 +68,7 @@ Keyboard::~Keyboard()
 
 void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port)
 {
-  PS2Device::begin(PS2Port);
+  //PS2Device::begin(PS2Port);
 
   m_CTRL       = false;
   m_LALT       = false;
@@ -89,14 +91,15 @@ void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port)
 
 void Keyboard::begin(gpio_num_t clkGPIO, gpio_num_t dataGPIO, bool generateVirtualKeys, bool createVKQueue)
 {
-  PS2Controller::begin(clkGPIO, dataGPIO);
-  PS2Controller::setKeyboard(this);
-  begin(generateVirtualKeys, createVKQueue, 0);
+  //PS2Controller::begin(clkGPIO, dataGPIO);
+  //PS2Controller::setKeyboard(this);
+  //begin(generateVirtualKeys, createVKQueue, 0);
 }
 
 
 void Keyboard::enableVirtualKeys(bool generateVirtualKeys, bool createVKQueue)
 {
+#if 0
   PS2DeviceLock lock(this);
 
   if (createVKQueue)
@@ -121,6 +124,7 @@ void Keyboard::enableVirtualKeys(bool generateVirtualKeys, bool createVKQueue)
     vQueueDelete(m_virtualKeyQueue);
     m_virtualKeyQueue = nullptr;
   }
+#endif /* 0 */
 }
 
 
@@ -132,6 +136,8 @@ bool Keyboard::reset()
   // sets default layout
   setLayout(&USLayout);
 
+  m_keyboardAvailable = true;
+#if 0
   // 350ms keyboard poweron delay (look at NXP M68HC08 designer reference manual)
   vTaskDelay(350 / portTICK_PERIOD_MS);
 
@@ -146,6 +152,7 @@ bool Keyboard::reset()
   vTaskDelay(200 / portTICK_PERIOD_MS);
 
   send_cmdSetScancodeSet(2);
+#endif /* 0 */
 
   return m_keyboardAvailable;
 }
@@ -161,10 +168,10 @@ bool Keyboard::setScancodeSet(int value)
     }
   } else {
     // no virtual keys enabled, just try to tell keyboard which set we need
-    if (send_cmdSetScancodeSet(value)) {
+    //if (send_cmdSetScancodeSet(value)) {
       m_scancodeSet = value;
       return true;
-    }
+    //}
   }
   return false;
 }
@@ -175,7 +182,7 @@ bool Keyboard::setLEDs(bool numLock, bool capsLock, bool scrollLock)
   m_numLockLED    = numLock;
   m_capsLockLED   = capsLock;
   m_scrollLockLED = scrollLock;
-  return send_cmdLEDs(numLock, capsLock, scrollLock);
+  //return send_cmdLEDs(numLock, capsLock, scrollLock);
 }
 
 
@@ -189,7 +196,7 @@ void Keyboard::getLEDs(bool * numLock, bool * capsLock, bool * scrollLock)
 
 void Keyboard::updateLEDs()
 {
-  send_cmdLEDs(m_NUMLOCK, m_CAPSLOCK, m_SCROLLLOCK);
+  //send_cmdLEDs(m_NUMLOCK, m_CAPSLOCK, m_SCROLLLOCK);
   m_numLockLED    = m_NUMLOCK;
   m_capsLockLED   = m_CAPSLOCK;
   m_scrollLockLED = m_SCROLLLOCK;
@@ -198,12 +205,16 @@ void Keyboard::updateLEDs()
 
 int Keyboard::scancodeAvailable()
 {
-  return dataAvailable();
+  return 0;
+  //return dataAvailable();
 }
 
 
 int Keyboard::getNextScancode(int timeOutMS, bool requestResendOnTimeOut)
 {
+  return 0;
+#if 0
+
   while (true) {
     int r = getData(timeOutMS);
     if (r == -1 && CLKTimeOutError()) {
@@ -216,6 +227,7 @@ int Keyboard::getNextScancode(int timeOutMS, bool requestResendOnTimeOut)
     }
     return r;
   }
+#endif /* 0 */
 }
 
 
@@ -392,6 +404,118 @@ VirtualKey Keyboard::VKtoAlternateVK(VirtualKey in_vk, bool down, KeyboardLayout
 }
 
 
+void Keyboard::injectScancode(uint16_t scancode, uint8_t isDown)
+{
+	struct fabgl::VirtualKeyItem k;
+  auto item = &k;
+
+  item->vk         = VK_NONE;
+  item->down       = isDown;
+  item->CTRL       = m_CTRL;
+  item->LALT       = m_LALT;
+  item->RALT       = m_RALT;
+  item->SHIFT      = m_SHIFT;
+  item->GUI        = m_GUI;
+  item->CAPSLOCK   = m_CAPSLOCK;
+  item->NUMLOCK    = m_NUMLOCK;
+  item->SCROLLLOCK = m_SCROLLLOCK;
+
+  uint8_t * scode = item->scancode;
+
+  if (scancode <= 0xff) {
+    *(scode++) = scancode & 0xff;
+    item->vk = scancodeToVK(scancode, false);
+  } else {
+    *(scode++) = scancode & 0xff;
+    *(scode++) = (scancode >> 8) & 0xff;
+
+    item->vk = scancodeToVK(scancode & 0xff, true);
+  }
+
+  if (item->vk != VK_NONE) {
+
+    // manage CAPSLOCK
+    item->vk = manageCAPSLOCK(item->vk);
+
+    // alternate VK (virtualkeys modified by shift, alt, ...)
+    item->vk = VKtoAlternateVK(item->vk, item->down);
+
+    // update shift, alt, ctrl, capslock, numlock and scrollock states and LEDs
+    switch (item->vk) {
+      case VK_LCTRL:
+      case VK_RCTRL:
+        m_CTRL = item->down;
+        break;
+      case VK_LALT:
+        m_LALT = item->down;
+        break;
+      case VK_RALT:
+        m_RALT = item->down;
+        break;
+      case VK_LSHIFT:
+      case VK_RSHIFT:
+        m_SHIFT = item->down;
+        break;
+      case VK_LGUI:
+      case VK_RGUI:
+        m_GUI = item->down;
+        break;
+      case VK_CAPSLOCK:
+        if (!item->down) {
+          m_CAPSLOCK = !m_CAPSLOCK;
+          updateLEDs();
+        }
+        break;
+      case VK_NUMLOCK:
+        if (!item->down) {
+          m_NUMLOCK = !m_NUMLOCK;
+          updateLEDs();
+        }
+        break;
+      case VK_SCROLLLOCK:
+        if (!item->down) {
+          m_SCROLLLOCK = !m_SCROLLLOCK;
+          updateLEDs();
+        }
+        break;
+      default:
+        break;
+    }
+
+  }
+
+  // manage dead keys - Implemented by Carles Oriol (https://github.com/carlesoriol)
+  for (VirtualKey const * dk = m_layout->deadKeysVK; *dk != VK_NONE; ++dk) {
+    if (item->vk == *dk) {
+      m_lastDeadKey = item->vk;
+      item->vk = VK_NONE;
+    }
+  }
+  if (item->vk != m_lastDeadKey && item->vk != VK_NONE) {
+    for (DeadKeyVirtualKeyDef const * dk = m_layout->deadkeysToVK; dk->deadKey != VK_NONE; ++dk) {
+      if (item->vk == dk->reqVirtualKey && m_lastDeadKey == dk->deadKey) {
+        item->vk = dk->virtualKey;
+        break;
+      }
+    }
+    if (!item->down && (item->vk != m_lastDeadKey) && (item->vk != VK_RSHIFT) && (item->vk != VK_LSHIFT))
+      m_lastDeadKey = VK_NONE;
+  }
+
+  // ending zero to item->scancode
+  if (scode < item->scancode + sizeof(VirtualKeyItem::scancode) - 1)
+    *(++scode) = 0;
+
+  // fill ASCII field
+  int ascii = fabgl::virtualKeyToASCII(*item, m_codepage);
+  item->ASCII = ascii > -1 ? ascii : 0;
+
+  if (item->vk != VK_NONE) {
+    injectVirtualKey(*item, false);
+  }
+}
+
+
 bool Keyboard::blockingGetVirtualKey(VirtualKeyItem * item)
 {
   item->vk         = VK_NONE;
@@ -524,13 +648,20 @@ bool Keyboard::blockingGetVirtualKey(VirtualKeyItem * item)
 
 void Keyboard::injectVirtualKey(VirtualKeyItem const & item, bool insert)
 {
+  auto lock = lockVirtualKeyQueue();
   // update m_VKMap
   if (item.down)
     m_VKMap[(int)item.vk >> 3] |= 1 << ((int)item.vk & 7);
   else
     m_VKMap[(int)item.vk >> 3] &= ~(1 << ((int)item.vk & 7));
 
+  if (insert) {
+    m_virtualKeyQueue.push_front(item);
+  } else {
+    m_virtualKeyQueue.push_back(item);
+  }
   // has VK queue? Insert VK into it.
+#if 0
   if (m_virtualKeyQueue) {
     auto ticksToWait = portMAX_DELAY;
     if (insert) {
@@ -539,6 +670,7 @@ void Keyboard::injectVirtualKey(VirtualKeyItem const & item, bool insert)
       xQueueSendToBack(m_virtualKeyQueue, &item, ticksToWait);
     }
   }
+#endif /* 0 */
 }
 
 
@@ -680,34 +812,54 @@ bool Keyboard::isVKDown(VirtualKey virtualKey)
 
 bool Keyboard::getNextVirtualKey(VirtualKeyItem * item, int timeOutMS)
 {
+  auto lock = lockVirtualKeyQueue();
+  if (m_virtualKeyQueue.size()) {
+    *item = m_virtualKeyQueue.front();
+    m_virtualKeyQueue.pop_front();
+    return true;
+  } else {
+    return false;
+  }
+#if 0
   bool r = (m_SCodeToVKConverterTask && item && xQueueReceive(m_virtualKeyQueue, item, msToTicks(timeOutMS)) == pdTRUE);
   if (r && m_scancodeSet == 1)
     convertScancode2to1(item);
   return r;
+#endif /* 0 */
 }
 
 
 VirtualKey Keyboard::getNextVirtualKey(bool * keyDown, int timeOutMS)
 {
+#if 0
   VirtualKeyItem item;
   if (getNextVirtualKey(&item, timeOutMS)) {
     if (keyDown)
       *keyDown = item.down;
     return item.vk;
   }
+#endif /* 0 */
   return VK_NONE;
 }
 
 
 int Keyboard::virtualKeyAvailable()
 {
+  auto lock = lockVirtualKeyQueue();
+  return m_virtualKeyQueue.size();
+#if 0
   return m_virtualKeyQueue ? uxQueueMessagesWaiting(m_virtualKeyQueue) : 0;
+#endif /* 0 */
 }
 
 
 void Keyboard::emptyVirtualKeyQueue()
 {
+  auto lock = lockVirtualKeyQueue();
+  m_virtualKeyQueue.clear();
+#if 0
   xQueueReset(m_virtualKeyQueue);
+#endif /* 0 */
 }
 
 

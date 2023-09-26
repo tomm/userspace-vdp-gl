@@ -30,26 +30,26 @@
 #include <sys/stat.h>
 #include <math.h>
 
-#include "ff.h"
-#include "diskio.h"
+//#include "ff.h"
+//#include "diskio.h"
 extern "C" {
   #include <dirent.h>
 }
-#include "esp_vfs_fat.h"
-#include "esp_task_wdt.h"
-#include "driver/sdspi_host.h"
-#include "sdmmc_cmd.h"
-#include "esp_spiffs.h"
-#include "soc/efuse_reg.h"
+//#include "esp_vfs_fat.h"
+//#include "esp_task_wdt.h"
+//#include "driver/sdspi_host.h"
+//#include "sdmmc_cmd.h"
+//#include "esp_spiffs.h"
+//#include "soc/efuse_reg.h"
 #include "soc/rtc.h"
-#include "esp_ipc.h"
-#include "soc/adc_channel.h"
+//#include "esp_ipc.h"
+//#include "soc/adc_channel.h"
 
 #include "fabutils.h"
 #include "dispdrivers/vgacontroller.h"
 #include "dispdrivers/vga2controller.h"
 #include "dispdrivers/vga16controller.h"
-#include "comdrivers/ps2controller.h"
+#include "ps2controller.h"
 
 
 #pragma GCC optimize ("O2")
@@ -65,14 +65,14 @@ namespace fabgl {
 
 
 TimeOut::TimeOut()
-  : m_start(esp_timer_get_time())
+  : m_start(millis())
 {
 }
 
 
 bool TimeOut::expired(int valueMS)
 {
-  return valueMS > -1 && ((esp_timer_get_time() - m_start) / 1000) > valueMS;
+  return (millis() - m_start) > valueMS;
 }
 
 
@@ -168,6 +168,7 @@ ChipPackage getChipPackage()
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////
+#if 0
 adc1_channel_t ADC1_GPIO2Channel(gpio_num_t gpio)
 {
   switch (gpio) {
@@ -210,18 +211,19 @@ uint32_t getApbFrequency()
   rtc_clk_cpu_freq_get_config(&conf);
   return conf.freq_mhz >= 80 ? 80000000 : (conf.source_freq_mhz * 80000000 / conf.div);
 }
+#endif /* 0 */
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 // getCPUFrequencyMHz
 uint32_t getCPUFrequencyMHz()
 {
-  rtc_cpu_freq_config_t conf;
-  rtc_clk_cpu_freq_get_config(&conf);
-  return conf.freq_mhz;
+  // :shrug:
+  return 18;
 }
 
 
+#if 0
 ////////////////////////////////////////////////////////////////////////////////////////////
 // esp_intr_alloc_pinnedToCore
 
@@ -248,6 +250,7 @@ void esp_intr_alloc_pinnedToCore(int source, int flags, intr_handler_t handler, 
   esp_ipc_call_blocking(core, esp_intr_alloc_pinnedToCore_call, &args);
 }
 
+#endif /* 0 */
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -612,6 +615,7 @@ void StringList::select(int index, bool value)
 // FileBrowser
 
 
+#if 0
 char const *   FileBrowser::s_SPIFFSMountPath;
 bool           FileBrowser::s_SPIFFSMounted = false;
 size_t         FileBrowser::s_SPIFFSMaxFiles;
@@ -1338,6 +1342,7 @@ bool FileBrowser::getFSInfo(DriveType driveType, int drive, int64_t * total, int
     return false;
 }
 
+#endif /* 0 */
 
 // FileBrowser
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1480,7 +1485,7 @@ int LightMemoryPool::largestFree()
 // CoreUsage
 
 
-int CoreUsage::s_busiestCore = FABGLIB_VIDEO_CPUINTENSIVE_TASKS_CORE;
+//int CoreUsage::s_busiestCore = FABGLIB_VIDEO_CPUINTENSIVE_TASKS_CORE;
 
 
 // CoreUsage
@@ -1735,6 +1740,7 @@ void APLLCalcParams(double freq, APLLParams * params, uint8_t * a, uint8_t * b, 
 // N    : 2..254
 // M    : 1..63
 // ret: actual sample rate
+#if 0
 int calcI2STimingParams(int sampleRate, int * outA, int * outB, int * outN, int * outM)
 {
   *outM = 1;
@@ -1777,6 +1783,7 @@ int calcI2STimingParams(int sampleRate, int * outA, int * outB, int * outN, int 
 
   return APB_CLK_FREQ / ((double)(*outN) + (double)(*outB) / (*outA)) / *outM;
 }
+#endif /* 0 */
 
 
 

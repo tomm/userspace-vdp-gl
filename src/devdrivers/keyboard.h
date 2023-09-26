@@ -35,12 +35,11 @@
  */
 
 
-#include "freertos/FreeRTOS.h"
-
 #include "fabglconf.h"
-#include "comdrivers/ps2device.h"
+//#include "comdrivers/ps2device.h"
 #include "kbdlayouts.h"
 #include "codepages.h"
+#include <mutex>
 
 
 namespace fabgl {
@@ -73,7 +72,7 @@ namespace fabgl {
  *       Serial.printf("VirtualKey = %s\n", Keyboard.virtualKeyToString(Keyboard.getNextVirtualKey()));
  *
  */
-class Keyboard : public PS2Device {
+class Keyboard /*: public PS2Device*/ {
 
 public:
 
@@ -188,6 +187,10 @@ public:
    * @return True if the specified virtual key is down.
    */
   bool isVKDown(VirtualKey virtualKey);
+
+  std::unique_lock<std::mutex> lockVirtualKeyQueue() {
+    return std::unique_lock<std::mutex>(m_virtualKeyQueueLock);
+  }
 
   /**
    * @brief Gets the number of virtual keys available in the queue.
@@ -334,7 +337,7 @@ public:
    *
    * @return True if command has been successfully delivered to the keyboard.
    */
-  bool setTypematicRateAndDelay(int repeatRateMS, int repeatDelayMS) { return send_cmdTypematicRateAndDelay(repeatRateMS, repeatDelayMS); }
+  bool setTypematicRateAndDelay(int repeatRateMS, int repeatDelayMS) {return true; }//return send_cmdTypematicRateAndDelay(repeatRateMS, repeatDelayMS); }
 
   /**
    * @brief Sets the scancode set
@@ -388,6 +391,7 @@ public:
    */
   static int scancodeToVirtualKeyTaskStackSize;
 
+  void injectScancode(uint16_t scancode, uint8_t isDown);
 
 
 private:
@@ -407,7 +411,8 @@ private:
   bool                      m_keyboardAvailable;  // self test passed and support for scancode set 2
 
   TaskHandle_t              m_SCodeToVKConverterTask; // Task that converts scancodes to virtual key and populates m_virtualKeyQueue
-  QueueHandle_t             m_virtualKeyQueue;
+  std::deque<VirtualKeyItem> m_virtualKeyQueue;
+  std::mutex                m_virtualKeyQueueLock;
 
   uint8_t                   m_VKMap[(int)(VK_LAST + 7) / 8];
 

@@ -27,7 +27,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-
+#ifdef USERSPACE
+#include <cassert>
+#endif /* USERSPACE */
 #include "collisiondetector.h"
 #include "fabutils.h"
 

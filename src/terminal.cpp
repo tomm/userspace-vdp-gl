@@ -24,9 +24,11 @@
  */
 
 
+#include <mutex>
 #include <stdarg.h>
 #include <string.h>
 
+#include "fabglconf.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
@@ -46,10 +48,12 @@
 #include "esp_intr_alloc.h"
 
 
+#include "fabgl.h"
 #include "fabfonts.h"
 #include "fabutils.h"
 #include "terminal.h"
-#include "devdrivers/mouse.h"
+#include "ps2controller.h"
+//#include "devdrivers/mouse.h"
 
 
 
@@ -189,7 +193,6 @@ int Terminal::keyboardReaderTaskStackSize = FABGLIB_DEFAULT_TERMINAL_KEYBOARD_RE
 
 Terminal::Terminal()
   : m_canvas(nullptr),
-    m_mutex(nullptr),
     m_uartRXEnabled(true),
     m_soundGenerator(nullptr),
     m_sprites(nullptr),
@@ -203,7 +206,7 @@ Terminal::Terminal()
 Terminal::~Terminal()
 {
   // end() called?
-  if (m_mutex)
+  //if (m_mutex)
     end();
 
   if (m_soundGenerator)
@@ -215,7 +218,7 @@ Terminal::~Terminal()
 
 void Terminal::activate(TerminalTransition transition)
 {
-  xSemaphoreTake(m_mutex, portMAX_DELAY);
+  auto lock = std::unique_lock<std::mutex>(m_mutex);
   if (s_activeTerminal != this) {
 
     if (s_activeTerminal && transition != TerminalTransition::None) {
@@ -284,17 +287,15 @@ void Terminal::activate(TerminalTransition transition)
     vTaskResume(m_keyboardReaderTaskHandle);
     syncDisplayController();
   }
-  xSemaphoreGive(m_mutex);
 }
 
 
 void Terminal::deactivate()
 {
-  xSemaphoreTake(m_mutex, portMAX_DELAY);
+  auto lock = std::unique_lock<std::mutex>(m_mutex);
   if (s_activeTerminal == this) {
     s_activeTerminal = nullptr;
   }
-  xSemaphoreGive(m_mutex);
 }
 
 
@@ -337,6 +338,7 @@ bool Terminal::begin(BaseDisplayController * displayController, int maxColumns, 
   }
 
   m_keyboard = keyboard;
+
   if (m_keyboard == nullptr && PS2Controller::initialized()) {
     // get default keyboard from PS/2 controller
     m_keyboard = PS2Controller::keyboard();
@@ -374,24 +376,24 @@ bool Terminal::begin(BaseDisplayController * displayController, int maxColumns, 
   m_coloredAttributesMaintainStyle = true;
   m_coloredAttributesMask = 0;
 
-  m_mutex = xSemaphoreCreateMutex();
-
   set132ColumnMode(false);
 
   // blink support
-  m_blinkTimer = xTimerCreate("", pdMS_TO_TICKS(FABGLIB_DEFAULT_BLINK_PERIOD_MS), pdTRUE, this, blinkTimerFunc);
-  xTimerStart(m_blinkTimer, portMAX_DELAY);
+  std::thread(blinkTimerFunc, this).detach();
+  //m_blinkTimer = xTimerCreate("", pdMS_TO_TICKS(FABGLIB_DEFAULT_BLINK_PERIOD_MS), pdTRUE, this, blinkTimerFunc);
+  //xTimerStart(m_blinkTimer, portMAX_DELAY);
 
   // queue and task to consume input characters
-  m_inputQueue = xQueueCreate(Terminal::inputQueueSize, sizeof(uint8_t));
-  xTaskCreate(&charsConsumerTask, "", Terminal::inputConsumerTaskStackSize, this, FABGLIB_CHARS_CONSUMER_TASK_PRIORITY, &m_charsConsumerTaskHandle);
+  m_inputQueue.clear();
+  //m_inputQueue = xQueueCreate(Terminal::inputQueueSize, sizeof(uint8_t));
+  xTaskCreate(&charsConsumerTask, "terminal_queue", Terminal::inputConsumerTaskStackSize, this, FABGLIB_CHARS_CONSUMER_TASK_PRIORITY, &m_charsConsumerTaskHandle);
 
   m_defaultBackgroundColor = Color::Black;
   m_defaultForegroundColor = Color::White;
 
-  #ifdef ARDUINO
+  //#ifdef ARDUINO
   m_serialPort = nullptr;
-  #endif
+  //#endif
 
   m_keyboardReaderTaskHandle = nullptr;
   m_uart = false;
@@ -414,7 +416,7 @@ void Terminal::end()
   if (m_keyboardReaderTaskHandle)
     vTaskDelete(m_keyboardReaderTaskHandle);
 
-  xTimerDelete(m_blinkTimer, portMAX_DELAY);
+  //xTimerDelete(m_blinkTimer, portMAX_DELAY);
 
   clearSavedCursorStates();
 
@@ -428,9 +430,6 @@ void Terminal::end()
   freeTabStops();
   freeGlyphsMap();
 
-  vSemaphoreDelete(m_mutex);
-  m_mutex = nullptr;
-
   delete m_canvas;
 
   if (isActive())
@@ -438,7 +437,7 @@ void Terminal::end()
 }
 
 
-#ifdef ARDUINO
+//#ifdef ARDUINO
 void Terminal::connectSerialPort(HardwareSerial & serialPort, bool autoXONXOFF)
 {
   if (m_serialPort)
@@ -449,44 +448,54 @@ void Terminal::connectSerialPort(HardwareSerial & serialPort, bool autoXONXOFF)
   m_serialPort->setRxBufferSize(Terminal::inputQueueSize);
 
   if (!m_keyboardReaderTaskHandle && m_keyboard->isKeyboardAvailable())
-    xTaskCreate(&keyboardReaderTask, "", Terminal::keyboardReaderTaskStackSize, this, FABGLIB_KEYBOARD_READER_TASK_PRIORITY, &m_keyboardReaderTaskHandle);
+    xTaskCreate(&keyboardReaderTask, "terminal_kb", Terminal::keyboardReaderTaskStackSize, this, FABGLIB_KEYBOARD_READER_TASK_PRIORITY, &m_keyboardReaderTaskHandle);
 
   // just in case a reset occurred after an XOFF
   if (autoXONXOFF)
     send(ASCII_XON);
 }
-#endif
+//#else
+//void Terminal::connectSerialPort(HardwareSerial & serialPort, bool autoXONXOFF) {}
+//#endif
 
 
 // returns number of bytes received (in the UART2 rx fifo buffer)
 inline int uartGetRXFIFOCount()
 {
+#if 0
   auto uart = (volatile uart_dev_t *)(DR_REG_UART2_BASE);
   return uart->status.rxfifo_cnt | ((int)(uart->mem_cnt_status.rx_cnt) << 8);
+#endif /* 0 */
+  return 0;
 }
 
 
 // flushes TX buffer of UART2
 static void uartFlushTXFIFO()
 {
+#if 0
   auto uart = (volatile uart_dev_t *)(DR_REG_UART2_BASE);
   while (uart->status.txfifo_cnt || uart->status.st_utx_out)
     ;
+#endif /* 0 */
 }
 
 
 // flushes RX buffer of UART2
 static void uartFlushRXFIFO()
 {
+#if 0
   auto uart = (volatile uart_dev_t *)(DR_REG_UART2_BASE);
   while (uartGetRXFIFOCount() != 0 || uart->mem_rx_status.wr_addr != uart->mem_rx_status.rd_addr)
     uart->fifo.rw_byte;
+#endif /* 0 */
 }
 
 
 // look into input queue (m_inputQueue): if there is space for new incoming bytes send XON and reenable uart RX interrupts
 void Terminal::uartCheckInputQueueForFlowControl()
 {
+#if 0
   if (m_flowControl != FlowControl::None) {
     auto uart = (volatile uart_dev_t *)(DR_REG_UART2_BASE);
     if (uxQueueMessagesWaiting(m_inputQueue) == 0 && uart->int_ena.rxfifo_full == 0) {
@@ -496,21 +505,25 @@ void Terminal::uartCheckInputQueueForFlowControl()
       SET_PERI_REG_MASK(UART_INT_ENA_REG(2), UART_RXFIFO_FULL_INT_ENA_M);
     }
   }
+#endif /* 0 */
 }
 
 
 void Terminal::setRTSStatus(bool value)
 {
+#if 0
   if (m_rtsPin != GPIO_UNUSED) {
     m_RTSStatus = value;
     gpio_set_level(m_rtsPin, !value); // low = asserted
   }
+#endif /* 0 */
 }
 
 
 // enable/disable RX sending XON/XOFF and/or setting RTS
 void Terminal::flowControl(bool enableRX)
 {
+#if 0
   if (enableRX) {
     if (m_flowControl == FlowControl::Software || m_flowControl == FlowControl::Hardsoft)
       SET_PERI_REG_MASK(UART_FLOW_CONF_REG(2), UART_SEND_XON_M); // send XON
@@ -524,6 +537,7 @@ void Terminal::flowControl(bool enableRX)
       setRTSStatus(false);           // disable RTS
     m_sentXOFF = true;
   }
+#endif /* 0 */
 }
 
 
@@ -542,6 +556,7 @@ bool Terminal::flowControl()
 // connect to UART2
 void Terminal::connectSerialPort(uint32_t baud, int dataLength, char parity, float stopBits, int rxPin, int txPin, FlowControl flowControl, bool inverted, int rtsPin, int ctsPin)
 {
+#if 0
   bool initialSetup = !m_uart;
 
   if (initialSetup) {
@@ -644,6 +659,7 @@ void Terminal::connectSerialPort(uint32_t baud, int dataLength, char parity, flo
 
   // APB Change callback (TODO?)
   //addApbChangeCallback(this, uart_on_apb_change);
+#endif /* 0 */
 }
 
 
@@ -734,7 +750,7 @@ void Terminal::reset()
   log("reset()\n");
   #endif
 
-  xSemaphoreTake(m_mutex, portMAX_DELAY);
+  auto lock = std::unique_lock<std::mutex>(m_mutex);
   m_resetRequested = false;
 
   m_emuState.originMode            = false;
@@ -797,8 +813,6 @@ void Terminal::reset()
   clearSavedCursorStates();
 
   int_clear();
-
-  xSemaphoreGive(m_mutex);
 }
 
 
@@ -885,6 +899,7 @@ void Terminal::loadFont(FontInfo const * font)
 
 void Terminal::flush(bool waitVSync)
 {
+#if 0
   #if FABGLIB_TERMINAL_DEBUG_REPORT_DESCS
   log("flush()\n");
   #endif
@@ -893,6 +908,7 @@ void Terminal::flush(bool waitVSync)
       ;
     m_canvas->waitCompletion(waitVSync);
   }
+#endif /* 0 */
 }
 
 
@@ -1125,7 +1141,7 @@ bool Terminal::int_enableCursor(bool value)
     if (m_bitmappedDisplayController) {
       // bitmapped display, simulated cursor
       if (m_emuState.cursorEnabled) {
-        if (uxQueueMessagesWaiting(m_inputQueue) == 0) {
+        if (m_inputQueue.size() == 0) {
           // just to show the cursor before next blink
           blinkCursor();
         }
@@ -1151,26 +1167,25 @@ bool Terminal::enableBlinkingText(bool value)
   return prev;
 }
 
-
-// callback for blink timer
-void Terminal::blinkTimerFunc(TimerHandle_t xTimer)
+// Converted to a thread for userspace-vdp
+void Terminal::blinkTimerFunc(Terminal *term)
 {
-  Terminal * term = (Terminal*) pvTimerGetTimerID(xTimer);
+  task_loop {
+    vTaskDelay(FABGLIB_DEFAULT_BLINK_PERIOD_MS);
 
-  if (term->isActive() && xSemaphoreTake(term->m_mutex, 0) == pdTRUE) {
-    // cursor blink
-    if (term->m_emuState.cursorEnabled && term->m_emuState.cursorBlinkingEnabled)
-      term->blinkCursor();
+    if (term->isActive()) {
+      auto lock = std::unique_lock<std::mutex>(term->m_mutex);
+      // cursor blink
+      if (term->m_emuState.cursorEnabled && term->m_emuState.cursorBlinkingEnabled)
+        term->blinkCursor();
 
-    // text blink
-    if (term->m_blinkingTextEnabled)
-      term->blinkText();
+      // text blink
+      if (term->m_blinkingTextEnabled)
+        term->blinkText();
 
-    xSemaphoreGive(term->m_mutex);
-
+    }
   }
 }
-
 
 void Terminal::blinkCursor()
 {
@@ -1774,7 +1789,8 @@ void Terminal::pollSerialPort()
 #endif
 
 
-void IRAM_ATTR Terminal::uart_isr(void *arg)
+#if 0
+void Terminal::uart_isr(void *arg)
 {
   Terminal * term = (Terminal*) arg;
   auto uart = (volatile uart_dev_t *)(DR_REG_UART2_BASE);
@@ -1817,6 +1833,7 @@ void IRAM_ATTR Terminal::uart_isr(void *arg)
   // clear interrupt flag
   SET_PERI_REG_MASK(UART_INT_CLR_REG(2), UART_RXFIFO_FULL_INT_CLR_M);
 }
+#endif /* 0 */
 
 
 // send a character to m_serialPort or m_outputQueue
@@ -1826,14 +1843,15 @@ void Terminal::send(uint8_t c)
   logFmt("=> %02X  %s%c\n", (int)c, (c <= ASCII_SPC ? CTRLCHAR_TO_STR[(int)c] : ""), (c > ASCII_SPC ? c : ASCII_SPC));
   #endif
 
-  #ifdef ARDUINO
+  //#ifdef ARDUINO
   if (m_serialPort) {
     while (m_serialPort->availableForWrite() == 0)
       vTaskDelay(1 / portTICK_PERIOD_MS);
     m_serialPort->write(c);
   }
-  #endif
+  //#endif
 
+#if 0
   if (m_uart) {
     //while (!flowControl())
     //  vTaskDelay(1);
@@ -1842,6 +1860,7 @@ void Terminal::send(uint8_t c)
       ;
     WRITE_PERI_REG(UART_FIFO_AHB_REG(2), c);
   }
+#endif /* 0 */
 
   localWrite(c);  // write to m_outputQueue
 }
@@ -1850,7 +1869,7 @@ void Terminal::send(uint8_t c)
 // send a string to m_serialPort or m_outputQueue
 void Terminal::send(char const * str)
 {
-  #ifdef ARDUINO
+  //#ifdef ARDUINO
   if (m_serialPort) {
     while (*str) {
       while (m_serialPort->availableForWrite() == 0)
@@ -1864,8 +1883,9 @@ void Terminal::send(char const * str)
       ++str;
     }
   }
-  #endif
+  //#endif
 
+#if 0
   if (m_uart) {
     auto uart = (volatile uart_dev_t *)(DR_REG_UART2_BASE);
     while (*str) {
@@ -1876,6 +1896,7 @@ void Terminal::send(char const * str)
       WRITE_PERI_REG(UART_FIFO_AHB_REG(2), (*str++));
     }
   }
+#endif /* 0 */
 
   localWrite(str);  // write to m_outputQueue
 }
@@ -1901,25 +1922,38 @@ void Terminal::sendSS3()
 
 int Terminal::availableForWrite()
 {
+#if 0
   return uxQueueSpacesAvailable(m_inputQueue);
+#endif /* 0 */
+  return 1;
 }
 
 
 bool Terminal::addToInputQueue(uint8_t c, bool fromISR)
 {
+  auto lock = std::unique_lock<std::mutex>(m_inputQueueLock);
+  m_inputQueue.push_back(c);
+  return true;
+#if 0
   if (fromISR)
     return xQueueSendToBackFromISR(m_inputQueue, &c, nullptr);
   else
     return xQueueSendToBack(m_inputQueue, &c, portMAX_DELAY);
+#endif /* 0 */
 }
 
 
 bool Terminal::insertToInputQueue(uint8_t c, bool fromISR)
 {
+  auto lock = std::unique_lock<std::mutex>(m_inputQueueLock);
+  m_inputQueue.push_front(c);
+  return true;
+#if 0
   if (fromISR)
     return xQueueSendToFrontFromISR(m_inputQueue, &c, nullptr);
   else
     return xQueueSendToFront(m_inputQueue, &c, portMAX_DELAY);
+#endif /* 0 */
 }
 
 
@@ -2341,9 +2375,18 @@ GlyphOptions Terminal::getGlyphOptionsAt(int X, int Y)
 // blocking operation
 uint8_t Terminal::getNextCode(bool processCtrlCodes)
 {
-  while (true) {
+  for (;; vTaskDelay(1)) {
     uint8_t c;
-    xQueueReceive(m_inputQueue, &c, portMAX_DELAY);
+    {
+      auto lock = std::unique_lock<std::mutex>(m_inputQueueLock);
+      if (m_inputQueue.size() > 0) {
+        c = m_inputQueue.front();
+        m_inputQueue.pop_front();
+      } else {
+        continue;
+      }
+    }
+    //xQueueReceive(m_inputQueue, &c, portMAX_DELAY);
 
     #if FABGLIB_TERMINAL_DEBUG_REPORT_INQUEUE_CODES
     logFmt("<= %02X  %s%c\n", (int)c, (c <= ASCII_SPC ? CTRLCHAR_TO_STR[(int)c] : ""), (c > ASCII_SPC ? c : ASCII_SPC));
@@ -2365,8 +2408,10 @@ void Terminal::charsConsumerTask(void * pvParameters)
 {
   Terminal * term = (Terminal*) pvParameters;
 
-  while (true)
+  task_loop {
     term->consumeInputQueue();
+    vTaskDelay(1); // -TM-
+  }
 }
 
 
@@ -2374,7 +2419,8 @@ void Terminal::consumeInputQueue()
 {
   uint8_t c = getNextCode(false);  // blocking call. false: do not process ctrl chars
 
-  xSemaphoreTake(m_mutex, portMAX_DELAY);
+  {
+  auto lock = std::unique_lock<std::mutex>(m_mutex);
 
   m_prevCursorEnabled = int_enableCursor(false);
   m_prevBlinkingTextEnabled = enableBlinkingText(false);
@@ -2396,7 +2442,7 @@ void Terminal::consumeInputQueue()
   enableBlinkingText(m_prevBlinkingTextEnabled);
   int_enableCursor(m_prevCursorEnabled);
 
-  xSemaphoreGive(m_mutex);
+  }
 
   if (m_resetRequested)
     reset();
@@ -2981,9 +3027,11 @@ void Terminal::consumeCSI()
         {
           sendCSI();
           char s[4];
-          send(itoa(m_emuState.originMode ? m_emuState.cursorY - m_emuState.scrollingRegionTop + 1 : m_emuState.cursorY, s, 10));
+          snprintf(s, sizeof(s), "%d", m_emuState.originMode ? m_emuState.cursorY - m_emuState.scrollingRegionTop + 1 : m_emuState.cursorY);
+          send(s);
           send(';');
-          send(itoa(m_emuState.cursorX, s, 10));
+          snprintf(s, sizeof(s), "%d", m_emuState.cursorX);
+          send(s);
           send('R');
           break;
         }
@@ -3960,9 +4008,11 @@ void Terminal::consumeFabGLSeq()
           mode = GPIO_MODE_INPUT_OUTPUT;
           break;
       }
+#if 0
       auto gpio = (gpio_num_t) extGetIntParam();
       extGetByteParam(); // FABGLEXT_ENDCODE
       configureGPIO(gpio, mode);
+#endif /* 0 */
       break;
     }
 
@@ -3978,7 +4028,7 @@ void Terminal::consumeFabGLSeq()
       auto level = (l == 1 || l == '1' || l == 'H') ? 1 : 0;
       auto gpio = (gpio_num_t) extGetIntParam();
       extGetByteParam(); // FABGLEXT_ENDCODE
-      gpio_set_level(gpio, level);
+      //gpio_set_level(gpio, level);
       break;
     }
 
@@ -4012,7 +4062,14 @@ void Terminal::consumeFabGLSeq()
     //    GPIONUM (text)     : '32'...'39'
     case FABGLEXTX_SETUPADC:
     {
-      auto width   = (adc_bits_width_t) (extGetIntParam() - 9);
+      extGetIntParam();
+      extGetByteParam();  // ';'
+      extGetIntParam();
+      extGetByteParam();  // ';'
+      extGetIntParam();
+      extGetByteParam();  // FABGLEXT_ENDCODE
+#if 0
+      auto width   = (adc_bits_width_t)*/ (extGetIntParam() - 9);
       extGetByteParam();  // ';'
       auto atten   = (adc_atten_t) extGetIntParam();
       extGetByteParam();  // ';'
@@ -4020,6 +4077,7 @@ void Terminal::consumeFabGLSeq()
       extGetByteParam();  // FABGLEXT_ENDCODE
       adc1_config_width(width);
       adc1_config_channel_atten(channel, atten);
+#endif /* 0 */
       break;
     }
 
@@ -4040,12 +4098,15 @@ void Terminal::consumeFabGLSeq()
     //       '0'
     case FABGLEXTX_READADC:
     {
-      auto val = adc1_get_raw(ADC1_GPIO2Channel((gpio_num_t)extGetIntParam()));
+      extGetIntParam();
+      //auto val = adc1_get_raw(ADC1_GPIO2Channel((gpio_num_t)extGetIntParam()));
       extGetByteParam(); // FABGLEXT_ENDCODE
+#if 0
       send(FABGLEXT_REPLYCODE);
       send(toupper(digit2hex((val & 0xF00) >> 8)));
       send(toupper(digit2hex((val & 0x0F0) >> 4)));
       send(toupper(digit2hex(val & 0x00F)));
+#endif /* 0 */
       break;
     }
 
@@ -4088,6 +4149,7 @@ void Terminal::consumeFabGLSeq()
       bool value = (extGetByteParam() == '1');
       if (m_bitmappedDisplayController) {
         auto dispctrl = static_cast<BitmappedDisplayController*>(m_displayController);
+#if 0
         auto mouse = PS2Controller::mouse();
         if (mouse && mouse->isMouseAvailable()) {
           if (value) {
@@ -4098,6 +4160,7 @@ void Terminal::consumeFabGLSeq()
             mouse->terminateAbsolutePositioner();
           }
         }
+#endif /* 0 */
       }
       extGetByteParam();  // FABGLEXT_ENDCODE
       break;
@@ -4121,6 +4184,7 @@ void Terminal::consumeFabGLSeq()
     {
       extGetByteParam();  // FABGLEXT_ENDCODE
       if (m_bitmappedDisplayController) {
+#if 0
         auto mouse = PS2Controller::mouse();
         auto x = mouse->status().X;
         auto y = mouse->status().Y;
@@ -4141,6 +4205,7 @@ void Terminal::consumeFabGLSeq()
         // button
         auto b = mouse->status().buttons;
         send(toupper(digit2hex( b.left | (b.middle << 1) | (b.right << 2) )));
+#endif /* 0 */
       }
       break;
     }
@@ -4577,10 +4642,12 @@ void Terminal::keyboardReaderTask(void * pvParameters)
 {
   Terminal * term = (Terminal*) pvParameters;
 
-  while (true) {
+  task_loop {
 
+#if 0
     if (!term->isActive())
       vTaskSuspend(NULL);
+#endif /* 0 */
 
     VirtualKeyItem item;
     if (term->m_keyboard->getNextVirtualKey(&item)) {
@@ -4600,7 +4667,7 @@ void Terminal::keyboardReaderTask(void * pvParameters)
               continue; // don't repeat
             term->m_lastPressedKey = item.vk;
 
-            xSemaphoreTake(term->m_mutex, portMAX_DELAY);
+            auto lock = std::unique_lock<std::mutex>(term->m_mutex);
 
             if (term->m_termInfo == nullptr) {
               if (term->m_emuState.ANSIMode)
@@ -4609,8 +4676,6 @@ void Terminal::keyboardReaderTask(void * pvParameters)
                 term->VT52DecodeVirtualKey(item);
             } else
               term->TermDecodeVirtualKey(item);
-
-            xSemaphoreGive(term->m_mutex);
 
           } else {
             // !keyDown

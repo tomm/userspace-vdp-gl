@@ -27,6 +27,7 @@
 
 #pragma once
 
+#define IRAM_ATTR
 
 /**
  * @file
@@ -35,15 +36,9 @@
  *
  */
 
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-
-#include <driver/adc.h>
-#include <esp_system.h>
-#include "sdmmc_cmd.h"
-#include "soc/frc_timer_reg.h"
-
+#include <cstdlib>
+#include <cstdint>
+#include "fake_fabgl.h"
 
 namespace fabgl {
 
@@ -545,7 +540,7 @@ enum class DriveType {
   SDCard,  /**< SD Card */
 };
 
-
+#if 0
 /**
  * @brief FileBrowser allows basic file system operations (dir, mkdir, remove and rename)
  *
@@ -904,7 +899,7 @@ private:
   bool      m_includeHiddenFiles;
   char *    m_namesStorage;
 };
-
+#endif /* 0 */
 
 
 
@@ -928,7 +923,8 @@ void free32(void * ptr);
 
 inline gpio_num_t int2gpio(int gpio)
 {
-  return gpio == -1 ? GPIO_UNUSED : (gpio_num_t)gpio;
+  return 0;
+  //return gpio == -1 ? GPIO_UNUSED : (gpio_num_t)gpio;
 }
 
 
@@ -966,6 +962,8 @@ enum class ChipPackage {
 ChipPackage getChipPackage();
 
 inline __attribute__((always_inline)) uint32_t getCycleCount() {
+  return 0;
+  /*
   uint32_t ccount;
   __asm__ __volatile__(
     "esync \n\t"
@@ -973,6 +971,7 @@ inline __attribute__((always_inline)) uint32_t getCycleCount() {
     : "=a" (ccount)
   );
   return ccount;
+  */
 }
 
 /**
@@ -984,7 +983,7 @@ inline __attribute__((always_inline)) uint32_t getCycleCount() {
 void replacePathSep(char * path, char newSep);
 
 
-adc1_channel_t ADC1_GPIO2Channel(gpio_num_t gpio);
+//adc1_channel_t ADC1_GPIO2Channel(gpio_num_t gpio);
 
 
 void esp_intr_alloc_pinnedToCore(int source, int flags, intr_handler_t handler, void * arg, intr_handle_t * ret_handle, int core);

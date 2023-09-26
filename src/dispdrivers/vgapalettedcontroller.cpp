@@ -25,7 +25,6 @@
 
 
 
-#include <alloca.h>
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
@@ -42,7 +41,7 @@
 
 #include "fabutils.h"
 #include "vgapalettedcontroller.h"
-#include "devdrivers/swgenerator.h"
+//#include "devdrivers/swgenerator.h"
 
 
 
@@ -60,8 +59,8 @@ namespace fabgl {
 /* VGAPalettedController definitions */
 
 
-volatile uint8_t * * VGAPalettedController::s_viewPort;
-volatile uint8_t * * VGAPalettedController::s_viewPortVisible;
+uint8_t * * VGAPalettedController::s_viewPort;
+uint8_t * * VGAPalettedController::s_viewPortVisible;
 lldesc_t volatile *  VGAPalettedController::s_frameResetDesc;
 volatile int         VGAPalettedController::s_scanLine;
 
@@ -76,7 +75,7 @@ VGAPalettedController::VGAPalettedController(int linesCount, int columnsQuantum,
     m_viewPortRatioMul(viewPortRatioMul),
     m_isrHandler(isrHandler)
 {
-  m_lines   = (volatile uint8_t**) heap_caps_malloc(sizeof(uint8_t*) * m_linesCount, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
+  m_lines   = (uint8_t**) heap_caps_malloc(sizeof(uint8_t*) * m_linesCount, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
   m_palette = (RGB222*) heap_caps_malloc(sizeof(RGB222) * getPaletteSize(), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 }
 
@@ -161,6 +160,7 @@ void VGAPalettedController::setResolution(VGATimings const& timings, int viewPor
 
   calculateAvailableCyclesForDrawings();
 
+#if 0
   // must be started before interrupt alloc
   startGPIOStream();
 
@@ -177,11 +177,13 @@ void VGAPalettedController::setResolution(VGATimings const& timings, int viewPor
   }
 
   resumeBackgroundPrimitiveExecution();
+#endif
 }
 
 
 void VGAPalettedController::onSetupDMABuffer(lldesc_t volatile * buffer, bool isStartOfVertFrontPorch, int scan, bool isVisible, int visibleRow)
 {
+#if 0
   if (isVisible) {
     buffer->buf = (uint8_t *) m_lines[visibleRow % m_linesCount];
 
@@ -192,6 +194,7 @@ void VGAPalettedController::onSetupDMABuffer(lldesc_t volatile * buffer, bool is
       buffer->eof = 1;
     }
   }
+#endif
 }
 
 
@@ -284,7 +287,7 @@ void VGAPalettedController::primitiveExecTask(void * arg)
     }
 
     // wait for vertical sync
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    // XXX ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
   }
 
 }

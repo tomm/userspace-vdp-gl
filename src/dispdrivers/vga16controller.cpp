@@ -24,7 +24,6 @@
  */
 
 
-#include <alloca.h>
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
@@ -153,6 +152,10 @@ void VGA16Controller::rawFillRow(int y, int x1, int x2, RGB888 color)
 // parameters not checked
 void VGA16Controller::rawFillRow(int y, int x1, int x2, uint8_t colorIndex)
 {
+  if (y<0) {
+    printf("bad rawFillRow (y=%d)... ignoring\n", y);
+    return;
+  }
   uint8_t * row = (uint8_t*) m_viewPort[y];
   // fill first pixels before full 16 bits word
   int x = x1;
@@ -398,8 +401,9 @@ void VGA16Controller::copyRect(Rect const & source, Rect & updateRect)
 // no bounds check is done!
 void VGA16Controller::readScreen(Rect const & rect, RGB888 * destBuf)
 {
+  auto frontbuffer = isDoubleBuffered() ? m_viewPortVisible : m_viewPort;
   for (int y = rect.Y1; y <= rect.Y2; ++y) {
-    auto row = (uint8_t*) m_viewPort[y];
+    auto row = (uint8_t*) frontbuffer[y];
     for (int x = rect.X1; x <= rect.X2; ++x, ++destBuf) {
       const RGB222 v = m_palette[VGA16_GETPIXELINROW(row, x)];
       *destBuf = RGB888(v.R * 85, v.G * 85, v.B * 85);  // 85 x 3 = 255
@@ -450,6 +454,7 @@ void VGA16Controller::rawDrawBitmap_RGBA8888(int destX, int destY, Bitmap const 
 
 void IRAM_ATTR VGA16Controller::ISRHandler(void * arg)
 {
+#if 0
   #if FABGLIB_VGAXCONTROLLER_PERFORMANCE_CHECK
   auto s1 = getCycleCount();
   #endif
@@ -533,6 +538,7 @@ void IRAM_ATTR VGA16Controller::ISRHandler(void * arg)
   #endif
 
   I2S1.int_clr.val = I2S1.int_st.val;
+#endif /* 0 */
 }
 
 

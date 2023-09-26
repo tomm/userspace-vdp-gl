@@ -23,8 +23,6 @@
   along with FabGL.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-
 #include "displaycontroller.h"
 
 #include <string.h>
@@ -375,7 +373,6 @@ int BitmappedDisplayController::queueSize = FABGLIB_DEFAULT_DISPLAYCONTROLLER_QU
 
 
 BitmappedDisplayController::BitmappedDisplayController()
-  : m_primDynMemPool(FABGLIB_PRIMITIVES_DYNBUFFERS_SIZE)
 {
   m_execQueue                           = nullptr;
   m_backgroundPrimitiveExecutionEnabled = true;
@@ -397,10 +394,12 @@ BitmappedDisplayController::~BitmappedDisplayController()
 void BitmappedDisplayController::setDoubleBuffered(bool value)
 {
   m_doubleBuffered = value;
+#if 0
   if (m_execQueue)
     vQueueDelete(m_execQueue);
   // on double buffering a queue of single element is enough and necessary (see addPrimitive() for details)
   m_execQueue = xQueueCreate(value ? 1 : BitmappedDisplayController::queueSize, sizeof(Primitive));
+#endif /* 0 */
 }
 
 
@@ -422,6 +421,7 @@ void IRAM_ATTR BitmappedDisplayController::resetPaintState()
 
 void BitmappedDisplayController::addPrimitive(Primitive & primitive)
 {
+#if 0
   if ((m_backgroundPrimitiveExecutionEnabled && m_doubleBuffered == false) || primitive.cmd == PrimitiveCmd::SwapBuffers) {
     primitiveReplaceDynamicBuffers(primitive);
     xQueueSendToBack(m_execQueue, &primitive, portMAX_DELAY);
@@ -432,10 +432,13 @@ void BitmappedDisplayController::addPrimitive(Primitive & primitive)
     }
 
   } else {
+#endif /* 0 */
     Rect updateRect = Rect(SHRT_MAX, SHRT_MAX, SHRT_MIN, SHRT_MIN);
     execPrimitive(primitive, updateRect, false);
     showSprites(updateRect);
+#if 0
   }
+#endif /* 0 */
 }
 
 
@@ -450,10 +453,7 @@ void BitmappedDisplayController::primitiveReplaceDynamicBuffers(Primitive & prim
     {
       int sz = primitive.path.pointsCount * sizeof(Point);
       if (sz < FABGLIB_PRIMITIVES_DYNBUFFERS_SIZE) {
-        void * newbuf = nullptr;
-        // wait until we have enough free space
-        while ((newbuf = m_primDynMemPool.alloc(sz)) == nullptr)
-          taskYIELD();
+        void * newbuf = malloc(sz);
         memcpy(newbuf, primitive.path.points, sz);
         primitive.path.points = (Point*)newbuf;
         primitive.path.freePoints = true;
@@ -470,30 +470,40 @@ void BitmappedDisplayController::primitiveReplaceDynamicBuffers(Primitive & prim
 // call this only inside an ISR
 bool IRAM_ATTR BitmappedDisplayController::getPrimitiveISR(Primitive * primitive)
 {
+#if 0
   return xQueueReceiveFromISR(m_execQueue, primitive, nullptr);
+#endif /* 0 */
+  return 0;
 }
 
 
 bool BitmappedDisplayController::getPrimitive(Primitive * primitive, int timeOutMS)
 {
+#if 0
   return xQueueReceive(m_execQueue, primitive, msToTicks(timeOutMS));
+#endif /* 0 */
+  return 0;
 }
 
 
 // cannot be called inside an ISR
 void BitmappedDisplayController::waitForPrimitives()
 {
+#if 0
   Primitive p;
   xQueuePeek(m_execQueue, &p, portMAX_DELAY);
+#endif /* 0 */
 }
 
 
 void BitmappedDisplayController::primitivesExecutionWait()
 {
+#if 0
   if (m_backgroundPrimitiveExecutionEnabled) {
     while (uxQueueMessagesWaiting(m_execQueue) > 0)
       ;
   }
+#endif /* 0 */
 }
 
 
@@ -518,6 +528,7 @@ void BitmappedDisplayController::enableBackgroundPrimitiveExecution(bool value)
 // Do not call inside ISR
 void IRAM_ATTR BitmappedDisplayController::processPrimitives()
 {
+#if 0
   suspendBackgroundPrimitiveExecution();
   Rect updateRect = Rect(SHRT_MAX, SHRT_MAX, SHRT_MIN, SHRT_MIN);
   Primitive prim;
@@ -527,6 +538,7 @@ void IRAM_ATTR BitmappedDisplayController::processPrimitives()
   resumeBackgroundPrimitiveExecution();
   Primitive p(PrimitiveCmd::Refresh, updateRect);
   addPrimitive(p);
+#endif /* 0 */
 }
 
 
@@ -781,11 +793,13 @@ void IRAM_ATTR BitmappedDisplayController::execPrimitive(Primitive const & prim,
     case PrimitiveCmd::SwapBuffers:
       swapBuffers();
       updateRect = updateRect.merge(Rect(0, 0, getViewPortWidth() - 1, getViewPortHeight() - 1));
+#if 0
       if (insideISR) {
         vTaskNotifyGiveFromISR(prim.notifyTask, nullptr);
       } else {
         xTaskNotifyGive(prim.notifyTask);
       }
+#endif /* 0 */
       break;
     case PrimitiveCmd::DrawPath:
       drawPath(prim.path, updateRect);
@@ -1034,7 +1048,7 @@ void IRAM_ATTR BitmappedDisplayController::drawPath(Path const & path, Rect & up
   absDrawLine(x1, y1, x2, y2, color);
 
   if (path.freePoints)
-    m_primDynMemPool.free((void*)path.points);
+    free((void*)path.points);
 }
 
 
@@ -1108,7 +1122,7 @@ void IRAM_ATTR BitmappedDisplayController::fillPath(Path const & path, RGB888 co
   }
 
   if (path.freePoints)
-    m_primDynMemPool.free((void*)path.points);
+    free((void*)path.points);
 }
 
 

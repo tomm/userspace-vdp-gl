@@ -39,16 +39,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "freertos/FreeRTOS.h"
-
-#if __has_include("esp32/rom/lldesc.h")
-  #include "esp32/rom/lldesc.h"
-#else
-  #include "rom/lldesc.h"
-#endif
-#include "soc/i2s_struct.h"
-#include "soc/sens_struct.h"
-
 #include "fabglconf.h"
 #include "fabutils.h"
 
@@ -483,6 +473,7 @@ public:
    */
   int volume() { return m_volume; }
 
+  int getSample();
 
 private:
 
@@ -494,8 +485,6 @@ private:
   void detachNoSuspend(WaveformGenerator * value);
   void setDMANode(int index, volatile uint16_t * buf, int len);
   void init();
-  
-  int getSample();
   
   #ifdef FABGL_EMULATED
   void sdl_init();

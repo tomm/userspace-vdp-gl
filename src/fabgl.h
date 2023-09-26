@@ -312,17 +312,12 @@
 #include "fabfonts.h"
 #include "terminal.h"
 #include "displaycontroller.h"
-#include "dispdrivers/vgacontroller.h"
-#include "dispdrivers/vgatextcontroller.h"
-#include "dispdrivers/vga2controller.h"
-#include "dispdrivers/vga4controller.h"
-#include "dispdrivers/vga8controller.h"
-#include "dispdrivers/vga16controller.h"
-#include "comdrivers/ps2controller.h"
-#include "comdrivers/tsi2c.h"
-#include "devdrivers/keyboard.h"
-#include "devdrivers/mouse.h"
-#include "devdrivers/DS3231.h"
+#include "vgacontroller.h"
+#include "vga2controller.h"
+#include "vga4controller.h"
+#include "vga8controller.h"
+#include "vga16controller.h"
+#include "ps2controller.h"
 #include "scene.h"
 #include "collisiondetector.h"
 #include "devdrivers/soundgen.h"
@@ -339,7 +334,7 @@ using fabgl::CollisionDetector;
 using fabgl::Point;
 using fabgl::Size;
 using fabgl::Rect;
-using fabgl::MouseDelta;
+//using fabgl::MouseDelta;
 using fabgl::MouseStatus;
 using fabgl::CursorName;
 using fabgl::SoundGenerator;
@@ -355,11 +350,11 @@ using fabgl::WaveformGenerator;
 using fabgl::TermType;
 using fabgl::SupportedTerminals;
 using fabgl::PS2Preset;
-using fabgl::PS2DeviceType;
+//using fabgl::PS2DeviceType;
 using fabgl::KbdMode;
 using fabgl::VirtualKey;
 using fabgl::VirtualKeyItem;
-using fabgl::FileBrowser;
+//using fabgl::FileBrowser;
 using fabgl::Canvas;
 using fabgl::PixelFormat;
 using fabgl::RGB222;
@@ -375,3 +370,6 @@ using fabgl::CharStyle;
 using fabgl::TerminalTransition;
 using fabgl::SupportedLayouts;
 using fabgl::CoreUsage;
+
+extern bool is_fabgl_terminating;
+#define task_loop while (!is_fabgl_terminating)
