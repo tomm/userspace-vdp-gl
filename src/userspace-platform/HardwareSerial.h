@@ -3,14 +3,15 @@
 #include <stdint.h>
 #include <deque>
 #include <mutex>
+#include "Stream.h"
 
-struct HardwareSerial {
+struct HardwareSerial: public Stream {
     HardwareSerial() {}
     HardwareSerial(int) {}
 
-    int available();
-    unsigned char read();
-    void write(unsigned char);
+    int available() override;
+    int read() override;
+    std::size_t write(uint8_t) override;
 
     void end() {}
     void setRxBufferSize(int) {}

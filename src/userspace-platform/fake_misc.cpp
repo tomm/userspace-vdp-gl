@@ -3,6 +3,8 @@
 #include <chrono>
 #include <thread>
 
+bool is_fabgl_terminating = false;
+
 void *heap_caps_malloc(size_t sz, int) {
 	return malloc(sz);
 }
@@ -26,7 +28,9 @@ int esp_timer_get_time() {
 
 /* Arduino.h */
 void delay(int ms) {
-	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+	do {
+		std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+	} while (is_fabgl_terminating);
 }
 
 unsigned long millis() {
@@ -65,5 +69,3 @@ void vTaskDelay(int n)
 	// n isn't ms, but whatever
 	delay(n);
 }
-
-bool is_fabgl_terminating = false;

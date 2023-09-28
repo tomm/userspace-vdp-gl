@@ -18,7 +18,7 @@ int HardwareSerial::available() {
 	std::unique_lock<std::mutex> lock(m_lock_in);
 	return m_buf_in.size();
 }
-unsigned char HardwareSerial::read() {
+int HardwareSerial::read() {
 	std::unique_lock<std::mutex> lock(m_lock_in);
 	uint8_t v = m_buf_in.front();
 	m_buf_in.pop_front();
@@ -34,9 +34,10 @@ bool HardwareSerial::readFromOutQueue(uint8_t *out) {
 		return false;
 	}
 }
-void HardwareSerial::write(uint8_t c) {
+std::size_t HardwareSerial::write(uint8_t c) {
 	std::unique_lock<std::mutex> lock(m_lock_out);
 	m_buf_out.push_back(c);
+	return 1;
 }
 void HardwareSerial::writeToInQueue(uint8_t c) {
 	std::unique_lock<std::mutex> lock(m_lock_in);
