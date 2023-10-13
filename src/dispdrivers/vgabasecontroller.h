@@ -162,6 +162,10 @@ public:
 
   virtual void end();
 
+  bool is_started() {
+    return m_DMABuffersCount > 0;
+  }
+
   static bool convertModelineToTimings(char const * modeline, VGATimings * timings);
 
   // abstract method of BitmappedDisplayController
@@ -369,8 +373,7 @@ private:
   // 1 = 8 colors, 2 = 64 colors, set by begin()
   int                    m_bitsPerChannel;
 
-  /*
-  GPIOStream             m_GPIOStream;
+  //GPIOStream             m_GPIOStream;
 
   lldesc_t volatile *    m_DMABuffers;
   int                    m_DMABuffersCount;
@@ -379,7 +382,6 @@ private:
   // when double buffer is not enabled then m_DMABuffers = m_DMABuffersVisible
   lldesc_t volatile *    m_DMABuffersHead;
   lldesc_t volatile *    m_DMABuffersVisible;
-  */
 
   // These buffers contains a full line, with FrontPorch, Sync, BackPorch and blank visible area, in the
   // order specified by timings.HStartingBlock
