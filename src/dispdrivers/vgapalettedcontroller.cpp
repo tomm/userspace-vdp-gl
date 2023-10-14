@@ -73,7 +73,9 @@ VGAPalettedController::VGAPalettedController(int linesCount, int columnsQuantum,
     m_nativePixelFormat(nativePixelFormat),
     m_viewPortRatioDiv(viewPortRatioDiv),
     m_viewPortRatioMul(viewPortRatioMul),
-    m_isrHandler(isrHandler)
+    m_isrHandler(isrHandler),
+    m_primitiveExecTask(nullptr),
+    m_processPrimitivesOnBlank(false)
 {
   m_lines   = (uint8_t**) heap_caps_malloc(sizeof(uint8_t*) * m_linesCount, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
   m_palette = (RGB222*) heap_caps_malloc(sizeof(RGB222) * getPaletteSize(), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);

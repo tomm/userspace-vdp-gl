@@ -43,6 +43,7 @@
 #include "dispdrivers/vgabasecontroller.h"
 
 #include "fake_fabgl.h"
+#include "vgabasecontroller.h"
 
 
 #pragma GCC optimize ("O2")
@@ -55,11 +56,13 @@ namespace fabgl {
   volatile uint64_t s_vgapalctrlcycles = 0;
 #endif
 
-
+VGABaseController *VGABaseController::activeController = nullptr;
+std::mutex VGABaseController::m_bigLock;
 
 VGABaseController::VGABaseController()
 {
   m_viewPortMemoryPool           = nullptr;
+  m_DMABuffersCount              = 0;
 }
 
 
@@ -113,12 +116,19 @@ void VGABaseController::begin()
 #if 0
   begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
 #endif
+
+  auto lock = acquireLock();
+  VGABaseController::activeController = this;
 }
 
 
 void VGABaseController::end()
 {
-  auto lock = this->lock();
+  auto lock = acquireLock();
+
+  if (VGABaseController::activeController == this) {
+    VGABaseController::activeController = nullptr;
+  }
 #if 0
   if (m_DMABuffers) {
     suspendBackgroundPrimitiveExecution();
@@ -386,7 +396,7 @@ void VGABaseController::setResolution(VGATimings const& timings, int viewPortWid
   // just in case setResolution() was called before
   end();
 
-  auto lock = this->lock();
+  auto lock = acquireLock();
   m_timings = timings;
 
   // inform base class about screen size
@@ -439,6 +449,8 @@ void VGABaseController::setResolution(VGATimings const& timings, int viewPortWid
   if (m_doubleBufferOverDMA)
     m_DMABuffersHead->qe.stqe_next = (lldesc_t*) &m_DMABuffersVisible[0];
 #endif
+
+  VGABaseController::activeController = this;
 }
 
 

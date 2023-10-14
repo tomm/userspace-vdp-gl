@@ -4,6 +4,8 @@
 #include <thread>
 #include <unordered_map>
 
+//#define LIMIT_ESP32_RAM
+
 bool is_fabgl_terminating = false;
 
 // a guess, and does not consider memory types
@@ -18,10 +20,12 @@ static void dump_mem_stats()
 }
 
 void *heap_caps_malloc(size_t sz, int) {
-	_s_total_allocd += sz;
 	void *p = malloc(sz);
+#ifdef LIMIT_ESP32_RAM
+	_s_total_allocd += sz;
 	_s_allocs[p] = sz;
-	//dump_mem_stats();
+	dump_mem_stats();
+#endif /* LIMIT_ESP32_RAM */
 	return p;
 }
 /*
@@ -30,13 +34,15 @@ void *heap_caps_realloc(void *ptr, size_t sz, int) {
 }
 */
 void *heap_caps_free(void *ptr) {
+#ifdef LIMIT_ESP32_RAM
 	auto iter = _s_allocs.find(ptr);
 	if (iter != _s_allocs.end()) {
 		_s_total_allocd -= iter->second;
 		_s_allocs.erase(iter);
 	}
+	dump_mem_stats();
+#endif /* LIMIT_ESP32_RAM */
 	free(ptr);
-	//dump_mem_stats();
 	return ptr;
 }
 size_t heap_caps_get_largest_free_block(int sz) {

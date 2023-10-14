@@ -162,6 +162,9 @@ public:
 
   virtual void end();
 
+  // must acquireLock() before altering this
+  static VGABaseController *activeController;
+
   bool is_started() {
     return m_DMABuffersCount > 0;
   }
@@ -294,7 +297,7 @@ public:
 
   uint8_t createBlankRawPixel()                  { return m_HVSync; }
 
-  std::unique_lock<std::mutex> lock() {
+  static std::unique_lock<std::mutex> acquireLock() {
     return std::unique_lock<std::mutex>(m_bigLock);
   }
 
@@ -392,7 +395,7 @@ private:
 
   int16_t                m_rawFrameHeight;
 
-  std::mutex             m_bigLock;
+  static std::mutex             m_bigLock;
 };
 
 
