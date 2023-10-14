@@ -2,17 +2,41 @@
 #include <math.h>
 #include <chrono>
 #include <thread>
+#include <unordered_map>
 
 bool is_fabgl_terminating = false;
 
-void *heap_caps_malloc(size_t sz, int) {
-	return malloc(sz);
+// a guess, and does not consider memory types
+#define HEAP_SIZE 220632
+
+static size_t _s_total_allocd = 0;
+static std::unordered_map<void *, size_t> _s_allocs;
+
+static void dump_mem_stats()
+{
+	printf("Heap used: %ld, remaining %ld of %ld\n", _s_total_allocd, HEAP_SIZE - _s_total_allocd, (long)HEAP_SIZE);
 }
+
+void *heap_caps_malloc(size_t sz, int) {
+	_s_total_allocd += sz;
+	void *p = malloc(sz);
+	_s_allocs[p] = sz;
+	//dump_mem_stats();
+	return p;
+}
+/*
 void *heap_caps_realloc(void *ptr, size_t sz, int) {
 	return realloc(ptr, sz);
 }
+*/
 void *heap_caps_free(void *ptr) {
+	auto iter = _s_allocs.find(ptr);
+	if (iter != _s_allocs.end()) {
+		_s_total_allocd -= iter->second;
+		_s_allocs.erase(iter);
+	}
 	free(ptr);
+	//dump_mem_stats();
 	return ptr;
 }
 size_t heap_caps_get_largest_free_block(int sz) {
