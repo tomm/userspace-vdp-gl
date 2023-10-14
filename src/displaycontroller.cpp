@@ -1125,6 +1125,9 @@ void IRAM_ATTR BitmappedDisplayController::fillPath(Path const & path, RGB888 co
     free((void*)path.points);
 }
 
+#ifndef M_PI_2
+# define M_PI_2     1.57079632679489661923   // pi/2
+#endif /* M_PI_2 */
 
 void IRAM_ATTR BitmappedDisplayController::absDrawThickLine(int X1, int Y1, int X2, int Y2, int penWidth, RGB888 const & color)
 {
