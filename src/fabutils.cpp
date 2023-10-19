@@ -51,6 +51,10 @@ extern "C" {
 #include "dispdrivers/vga16controller.h"
 #include "ps2controller.h"
 
+#ifdef USERSPACE
+# include "malloc_wrapper.h"
+#endif /* USERSPACE */
+
 
 #pragma GCC optimize ("O2")
 

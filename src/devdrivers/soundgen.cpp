@@ -41,6 +41,10 @@
 //#include "esp_log.h"
 //#include "driver/sigmadelta.h"
 
+#ifdef USERSPACE
+# include "malloc_wrapper.h"
+#endif /* USERSPACE */
+
 
 #include "soundgen.h"
 

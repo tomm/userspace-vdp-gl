@@ -37,6 +37,10 @@
 
 #include "keyboard.h"
 
+#ifdef USERSPACE
+# include "malloc_wrapper.h"
+#endif /* USERSPACE */
+
 
 #pragma GCC optimize ("O2")
 

@@ -43,6 +43,9 @@
 #include "vgacontroller.h"
 #include "devdrivers/swgenerator.h"
 
+#ifdef USERSPACE
+# include "malloc_wrapper.h"
+#endif /* USERSPACE */
 
 
 

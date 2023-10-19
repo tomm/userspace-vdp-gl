@@ -45,6 +45,9 @@
 #include "fake_fabgl.h"
 #include "vgabasecontroller.h"
 
+#ifdef USERSPACE
+# include "malloc_wrapper.h"
+#endif /* USERSPACE */
 
 #pragma GCC optimize ("O2")
 
@@ -493,9 +496,9 @@ void VGABaseController::allocateViewPort(uint32_t allocCaps, int rowlen)
     m_viewPortVisible = m_viewPort;
 
   for (int i=0; i<m_viewPortHeight; i++) {
-    m_viewPort[i] = (uint8_t*)heap_caps_malloc(rowlen, MALLOC_CAP_8BIT);
+    m_viewPort[i] = (uint8_t*)heap_caps_malloc(rowlen, allocCaps);
     if (isDoubleBuffered()) {
-      m_viewPortVisible[i] = (uint8_t*)heap_caps_malloc(rowlen, MALLOC_CAP_8BIT);
+      m_viewPortVisible[i] = (uint8_t*)heap_caps_malloc(rowlen, allocCaps);
     }
   }
 

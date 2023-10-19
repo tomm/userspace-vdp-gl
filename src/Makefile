@@ -24,6 +24,7 @@ SRCS = \
        terminfo.cpp \
        userspace-platform/esp32time.cpp \
        userspace-platform/fake_misc.cpp \
+       userspace-platform/heap_allocator.cpp \
        userspace-platform/Stream.cpp \
        userspace-platform/HardwareSerial.cpp \
        userspace-platform/ps2controller.cpp \

@@ -8,6 +8,10 @@
 #include <cstring>
 #include "HardwareSerial.h"
 
+extern void init_userspace_fabgl();
+extern void init_esp_ram();
+extern void malloc_wrapper_dump_stats();
+
 typedef uint8_t byte;
 typedef uint16_t word;
 typedef int lldesc_t;;
@@ -33,11 +37,11 @@ typedef void(*intr_handle_t)();
 #define GPIO_MODE_INPUT_OUTPUT_OD 0
 #define GPIO_MODE_INPUT_OUTPUT 0
 
-#define MALLOC_CAP_8BIT 0
-#define MALLOC_CAP_32BIT 0
-#define MALLOC_CAP_INTERNAL 0
-#define MALLOC_CAP_DMA 0
-#define MALLOC_CAP_SPIRAM 0
+#define MALLOC_CAP_8BIT 1
+#define MALLOC_CAP_32BIT 2
+#define MALLOC_CAP_INTERNAL 4
+#define MALLOC_CAP_DMA 8
+#define MALLOC_CAP_SPIRAM 16
 void *heap_caps_malloc(size_t, int);
 //void *heap_caps_realloc(void *, size_t, int);
 void *heap_caps_free(void *);
@@ -47,7 +51,7 @@ int heap_caps_get_free_size(int);
 #define disableCore0WDT()
 #define disableCore1WDT()
 inline bool psramInit() { return true; }
-inline void *ps_malloc(size_t sz) { return malloc(sz); }
+inline void *ps_malloc(size_t sz) { return heap_caps_malloc(sz, MALLOC_CAP_8BIT); }
 
 extern int esp_timer_get_time();
 
