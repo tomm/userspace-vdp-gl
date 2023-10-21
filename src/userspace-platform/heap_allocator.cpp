@@ -3,8 +3,14 @@
 #include <mutex>
 
 #define LIMIT_ESP32_RAM
-// a guess, and does not consider memory types
-#define DRAM_HEAP_SIZE 220632
+
+// How much memory is already used by static data on VDP startup.
+// Values arrived at by examining free heap ram on a real Agon,
+// and subtracting what is dynamically allocated on an emulator startup.
+// XXX highly fishy values. need to be updated with VDP version changes
+#define IRAM_OVERHEAD 163712
+#define DRAM_OVERHEAD 110920 // considering esp_get_free_internal_heap_size()
+#define PSRAM_OVERHEAD 12397
 
 enum Esp32MemType {
 	IRam,
@@ -39,12 +45,9 @@ private:
 	std::unordered_map<void *, Esp32Alloc> allocs;
 public:
 	EspRam() {
-		esp_ram_free[IRam] = 200*1024;
-		esp_ram_free[DRam] = 320*1024;
-		esp_ram_free[PSRam] = 4*1024*1024;
-	}
-	virtual ~EspRam() {
-		printf("~EspRam\n");
+		esp_ram_free[IRam] = 200*1024 - IRAM_OVERHEAD;
+		esp_ram_free[DRam] = 320*1024 - DRAM_OVERHEAD;
+		esp_ram_free[PSRam] = 4*1024*1024 - PSRAM_OVERHEAD;
 	}
 
 	std::unique_lock<std::mutex> acquireLock() {
@@ -61,10 +64,14 @@ public:
 
 	void *alloc(size_t sz, int caps)
 	{
-		void *p = ::malloc(sz);
 #ifdef LIMIT_ESP32_RAM
 		auto lock = acquireLock();
 		const Esp32MemType type = esp32MemTypeFromCaps(caps);
+		if (esp_ram_free[type] < sz) {
+			printf("ESP32 out of ram (caps 0x%x)!\n", caps);
+			return nullptr;
+		}
+		void *p = ::malloc(sz);
 		esp_ram_free[type] -= sz;
 		allocs.emplace(std::make_pair(p, Esp32Alloc(type, sz)));
 #endif /* LIMIT_ESP32_RAM */

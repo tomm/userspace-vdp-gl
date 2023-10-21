@@ -179,14 +179,6 @@ void VGABaseController::freeViewPort()
     heap_caps_free(m_viewPortMemoryPool);
     m_viewPortMemoryPool = nullptr;
   }
-  for (int i=0; i<m_viewPortHeight; i++) {
-    if (m_viewPort) {
-      heap_caps_free(m_viewPort[i]);
-    }
-    if (isDoubleBuffered()) {
-      heap_caps_free(m_viewPortVisible[i]);
-    }
-  }
   if (m_viewPort) {
     heap_caps_free(m_viewPort);
     m_viewPort = nullptr;
@@ -461,16 +453,15 @@ void VGABaseController::setResolution(VGATimings const& timings, int viewPortWid
 // to reduce memory allocation overhead try to allocate the minimum number of blocks.
 void VGABaseController::allocateViewPort(uint32_t allocCaps, int rowlen)
 {
-  //int linesCount[FABGLIB_VIEWPORT_MEMORY_POOL_COUNT]; // where store number of lines for each pool
-  //int poolsCount = 0; // number of allocated pools
-  //int remainingLines = m_viewPortHeight;
-  //m_viewPortHeight = 0; // m_viewPortHeight needs to be recalculated
+  int linesCount[FABGLIB_VIEWPORT_MEMORY_POOL_COUNT]; // where store number of lines for each pool
+  int poolsCount = 0; // number of allocated pools
+  int remainingLines = m_viewPortHeight;
+  m_viewPortHeight = 0; // m_viewPortHeight needs to be recalculated
 
-  //if (isDoubleBuffered())
-    //remainingLines *= 2;
+  if (isDoubleBuffered())
+    remainingLines *= 2;
 
   // allocate pools
-#if 0
   m_viewPortMemoryPool = (uint8_t * *) heap_caps_malloc(sizeof(uint8_t*) * (FABGLIB_VIEWPORT_MEMORY_POOL_COUNT + 1), MALLOC_CAP_32BIT);
   while (remainingLines > 0 && poolsCount < FABGLIB_VIEWPORT_MEMORY_POOL_COUNT) {
     int largestBlock = heap_caps_get_largest_free_block(allocCaps);
@@ -485,24 +476,15 @@ void VGABaseController::allocateViewPort(uint32_t allocCaps, int rowlen)
     ++poolsCount;
   }
   m_viewPortMemoryPool[poolsCount] = nullptr;
-#endif
 
   // fill m_viewPort[] with line pointers
   if (isDoubleBuffered()) {
+    m_viewPortHeight /= 2;
     m_viewPortVisible = (uint8_t * *) heap_caps_malloc(sizeof(uint8_t*) * m_viewPortHeight, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
   }
   m_viewPort = (uint8_t * *) heap_caps_malloc(sizeof(uint8_t*) * m_viewPortHeight, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
   if (!isDoubleBuffered())
     m_viewPortVisible = m_viewPort;
-
-  for (int i=0; i<m_viewPortHeight; i++) {
-    m_viewPort[i] = (uint8_t*)heap_caps_malloc(rowlen, allocCaps);
-    if (isDoubleBuffered()) {
-      m_viewPortVisible[i] = (uint8_t*)heap_caps_malloc(rowlen, allocCaps);
-    }
-  }
-
-#if 0
   for (int p = 0, l = 0; p < poolsCount; ++p) {
     uint8_t * pool = m_viewPortMemoryPool[p];
     for (int i = 0; i < linesCount[p]; ++i) {
@@ -514,7 +496,10 @@ void VGABaseController::allocateViewPort(uint32_t allocCaps, int rowlen)
     }
     l += linesCount[p];
   }
-#endif
+
+	if (getScreenHeight() != getViewPortHeight()) {
+    printf("VDP error: insufficient memory to set video mode\n");
+  }
 }
 
 
