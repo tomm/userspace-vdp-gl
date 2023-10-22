@@ -103,15 +103,20 @@ public:
 	}
 };
 
-static EspRam *ram = nullptr;
+static EspRam *_ram = nullptr;
+
+static inline EspRam *ram() {
+	if (_ram == nullptr) _ram = new EspRam();
+	return _ram;
+}
 
 void init_esp_ram()
 {
-	ram = new EspRam();
+	//ram = new EspRam();
 }
 
 void *heap_caps_malloc(size_t sz, int caps) {
-	return ram->alloc(sz, caps);
+	return ram()->alloc(sz, caps);
 }
 
 /*
@@ -121,18 +126,18 @@ void *heap_caps_realloc(void *ptr, size_t sz, int) {
 */
 
 void *heap_caps_free(void *ptr) {
-	return ram->dealloc(ptr);
+	return ram()->dealloc(ptr);
 }
 
 size_t heap_caps_get_largest_free_block(int caps) {
 	// XXX no heap fragmentation emulated, so largest free block is total free
-	return ram->get_free_size(caps);
+	return ram()->get_free_size(caps);
 }
 
 int heap_caps_get_free_size(int caps) {
-	return ram->get_free_size(caps);
+	return ram()->get_free_size(caps);
 }
 
 void malloc_wrapper_dump_stats() {
-	ram->dump_mem_stats();
+	ram()->dump_mem_stats();
 }
