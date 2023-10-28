@@ -34,7 +34,7 @@ bool HardwareSerial::readFromOutQueue(uint8_t *out) {
 		return false;
 	}
 }
-std::size_t HardwareSerial::write(uint8_t c) {
+size_t HardwareSerial::write(uint8_t c) {
 	std::unique_lock<std::mutex> lock(m_lock_out);
 	m_buf_out.push_back(c);
 	return 1;

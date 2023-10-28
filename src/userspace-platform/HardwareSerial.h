@@ -11,7 +11,7 @@ struct HardwareSerial: public Stream {
 
     int available() override;
     int read() override;
-    std::size_t write(uint8_t) override;
+    size_t write(uint8_t) override;
 
     void end() {}
     void setRxBufferSize(int) {}
