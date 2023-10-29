@@ -57,7 +57,9 @@ Mouse::Mouse()
 
 Mouse::~Mouse()
 {
+#ifndef USERSPACE
   PS2DeviceLock lock(this);
+#endif /* !USERSPACE */
   terminateAbsolutePositioner();
   if (m_mouseUpdateTask)
     vTaskDelete(m_mouseUpdateTask);
@@ -88,6 +90,10 @@ void Mouse::begin(gpio_num_t clkGPIO, gpio_num_t dataGPIO)
 
 bool Mouse::reset()
 {
+#ifdef USERSPACE
+  m_mouseAvailable = true;
+  return true;
+#else
   if (s_quickCheckHardware) {
     m_mouseAvailable = send_cmdReset();
   } else {
@@ -114,6 +120,7 @@ bool Mouse::reset()
   }
 
   return m_mouseAvailable;
+#endif /* !USERSPACE */
 }
 
 
@@ -131,7 +138,11 @@ bool Mouse::packetAvailable()
 
 bool Mouse::getNextPacket(MousePacket * packet, int timeOutMS, bool requestResendOnTimeOut)
 {
+#ifdef USERSPACE
+  return false;
+#else
   return xQueueReceive(m_receivedPacket, packet, msToTicks(timeOutMS));
+#endif /* !USERSPACE */
 }
 
 
@@ -271,6 +282,7 @@ void Mouse::updateAbsolutePosition(MouseDelta * delta)
 
 void Mouse::mouseUpdateTask(void * arg)
 {
+#ifndef USERSPACE
   constexpr int MAX_TIME_BETWEEN_DATA_US = 500000;  // maximum time between data composing a delta frame
 
   Mouse * mouse = (Mouse*) arg;
@@ -317,6 +329,7 @@ void Mouse::mouseUpdateTask(void * arg)
     }
 
   }
+#endif /* !USERSPACE */
 }
 
 
@@ -337,10 +350,12 @@ MouseStatus Mouse::getNextStatus(int timeOutMS)
 
 void Mouse::emptyQueue()
 {
+#ifndef USERSPACE
   while (getData(0) != -1)
     ;
   if (m_absoluteQueue)
     xQueueReset(m_absoluteQueue);
+#endif /* !USERSPACE */
 }
 
 

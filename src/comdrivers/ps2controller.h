@@ -223,7 +223,7 @@ public:
 private:
 
 
-  static void IRAM_ATTR ULPWakeISR(void * arg);
+  static void ULPWakeISR(void * arg);
 
   static PS2Controller *    s_instance;
 

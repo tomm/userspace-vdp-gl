@@ -1,14 +1,17 @@
 CXX ?= g++
 LIBS = -g
-CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -DUSERSPACE -g -std=c++11 -I. -I./dispdrivers -I./userspace-platform
+CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -DUSERSPACE -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform
 OPTIONS = 
 
 SRCS = \
        canvas.cpp \
        codepages.cpp \
        collisiondetector.cpp \
+       comdrivers/ps2device.cpp \
+       comdrivers/ps2controller.cpp \
        devdrivers/kbdlayouts.cpp \
        devdrivers/keyboard.cpp \
+       devdrivers/mouse.cpp \
        devdrivers/soundgen.cpp \
        dispdrivers/vga16controller.cpp \
        dispdrivers/vga2controller.cpp \
@@ -27,7 +30,6 @@ SRCS = \
        userspace-platform/heap_allocator.cpp \
        userspace-platform/Stream.cpp \
        userspace-platform/HardwareSerial.cpp \
-       userspace-platform/ps2controller.cpp \
 
 OBJS = $(SRCS:.cpp=.o)
 

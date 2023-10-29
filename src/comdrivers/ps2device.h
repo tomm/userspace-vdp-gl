@@ -32,7 +32,10 @@
 #include "freertos/semphr.h"
 
 #include "fabglconf.h"
+
+#ifndef USERSPACE
 #include "ps2controller.h"
+#endif /* !USERSPACE */
 
 
 /**

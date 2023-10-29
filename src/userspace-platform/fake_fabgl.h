@@ -19,6 +19,10 @@ typedef void (*esp_timer_handle_t);
 typedef int gpio_num_t;
 typedef int gpio_mode_t;
 #define GPIO_MAX 64
+#define GPIO_NUM_33 0
+#define GPIO_NUM_32 0
+#define GPIO_NUM_26 0
+#define GPIO_NUM_27 0
 #define GPIO_NUM_MAX 64
 typedef void(*intr_handler_t)(void *);
 typedef void(*intr_handle_t)();

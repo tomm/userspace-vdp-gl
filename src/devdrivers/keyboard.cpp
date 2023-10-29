@@ -72,7 +72,7 @@ Keyboard::~Keyboard()
 
 void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port)
 {
-  //PS2Device::begin(PS2Port);
+  PS2Device::begin(PS2Port);
 
   m_CTRL       = false;
   m_LALT       = false;
@@ -95,9 +95,9 @@ void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port)
 
 void Keyboard::begin(gpio_num_t clkGPIO, gpio_num_t dataGPIO, bool generateVirtualKeys, bool createVKQueue)
 {
-  //PS2Controller::begin(clkGPIO, dataGPIO);
-  //PS2Controller::setKeyboard(this);
-  //begin(generateVirtualKeys, createVKQueue, 0);
+  PS2Controller::begin(clkGPIO, dataGPIO);
+  PS2Controller::setKeyboard(this);
+  begin(generateVirtualKeys, createVKQueue, 0);
 }
 
 

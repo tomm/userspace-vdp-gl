@@ -13,6 +13,7 @@ extern int xTaskCreate(TaskFunction_t pvTaskCode, const char *const pcName, cons
 extern int xTaskCreatePinnedToCore(TaskFunction_t pvTaskCode, const char *const pcName, const uint32_t usStackDepth, void *const pvParameters, int uxPriority, TaskHandle_t *const pvCreatedTask, const int xCoreID);
 extern void vTaskDelay(int);
 #define vTaskDelete(n)
+#define xTaskGetTickCountFromISR() 0
 #define xTaskGetCurrentTaskHandle() 0
 #define vTaskResume(n)
 #define xSemaphoreCreateMutex() 0
@@ -26,3 +27,4 @@ extern void vTaskDelay(int);
 #define xTaskAbortDelay(a)
 #define uxQueueMessagesWaiting(q) 0
 #define xQueueReceive(a,b,c)
+#define xQueueReset(q)

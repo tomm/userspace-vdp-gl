@@ -27,6 +27,7 @@
 #include "freertos/FreeRTOS.h"
 
 #include "ps2device.h"
+#include "ps2controller.h"
 #include "fabutils.h"
 
 
@@ -90,13 +91,19 @@ void PS2Device::quickCheckHardware()
 
 bool PS2Device::lock(int timeOutMS)
 {
+#ifdef USERSPACE
+  return true;
+#else
   return PS2Controller::lock(m_PS2Port, timeOutMS);
+#endif /* !USERSPACE */
 }
 
 
 void PS2Device::unlock()
 {
+#ifndef USERSPACE
   PS2Controller::unlock(m_PS2Port);
+#endif /* !USERSPACE */
 }
 
 
@@ -166,6 +173,9 @@ int PS2Device::getData(int timeOutMS)
 
 bool PS2Device::sendCommand(uint8_t cmd, uint8_t expectedReply)
 {
+#ifdef USERSPACE
+  return true;
+#else
   constexpr int INTER_WAITREPLY_TIMEOUT_MS = 10;
 
   PS2DeviceLock deviceLock(this);
@@ -180,6 +190,7 @@ bool PS2Device::sendCommand(uint8_t cmd, uint8_t expectedReply)
       return true;
   } while (!timeout.expired(m_cmdTimeOut));
   return false;
+#endif /* !USERSPACE */
 }
 
 

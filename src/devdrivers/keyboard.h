@@ -36,7 +36,8 @@
 
 
 #include "fabglconf.h"
-//#include "comdrivers/ps2device.h"
+#include "comdrivers/ps2controller.h"
+#include "comdrivers/ps2device.h"
 #include "kbdlayouts.h"
 #include "codepages.h"
 #include <mutex>
@@ -72,7 +73,7 @@ namespace fabgl {
  *       Serial.printf("VirtualKey = %s\n", Keyboard.virtualKeyToString(Keyboard.getNextVirtualKey()));
  *
  */
-class Keyboard /*: public PS2Device*/ {
+class Keyboard: public PS2Device {
 
 public:
 

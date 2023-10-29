@@ -28,6 +28,7 @@
 
 #include "freertos/FreeRTOS.h"
 
+#ifndef USERSPACE
 #include "esp32/ulp.h"
 #include "driver/rtc_io.h"
 #include "soc/sens_reg.h"
@@ -35,10 +36,13 @@
   #include "soc/rtc_io_periph.h"
 #endif
 #include "esp_log.h"
+#endif /* !USERSPACE */
 
 #include "ps2controller.h"
 #include "fabutils.h"
+#ifndef USERSPACE
 #include "ulp_macro_ex.h"
+#endif /* !USERSPACE */
 #include "devdrivers/keyboard.h"
 #include "devdrivers/mouse.h"
 
@@ -49,8 +53,6 @@
 
 
 namespace fabgl {
-
-
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -418,6 +420,7 @@ namespace fabgl {
 */
 
 
+#ifndef USERSPACE
 const ulp_insn_t ULP_code[] = {
 
   // Stop ULP timer, not necessary because this routine never ends
@@ -984,6 +987,7 @@ M_LABEL(LABEL_PORT1_RX_CLK_IS_HIGH),
   M_BX(LABEL_WAIT_COMMAND),
 
 };
+#endif /* !USERSPACE */
 
 
 
@@ -994,6 +998,7 @@ M_LABEL(LABEL_PORT1_RX_CLK_IS_HIGH),
 // size in 32 bit words
 static void replace_placeholders(uint32_t prg_start, int size, bool port0Enabled, gpio_num_t port0_clkGPIO, gpio_num_t port0_datGPIO, bool port1Enabled, gpio_num_t port1_clkGPIO, gpio_num_t port1_datGPIO)
 {
+#ifndef USERSPACE
   uint32_t CLK_rtc_gpio_num[2], CLK_rtc_gpio_reg[2], CLK_rtc_gpio_ie_s[2];
   uint32_t DAT_rtc_gpio_num[2], DAT_rtc_gpio_reg[2], DAT_rtc_gpio_ie_s[2];
 
@@ -1078,6 +1083,7 @@ static void replace_placeholders(uint32_t prg_start, int size, bool port0Enabled
       }
     }
   }
+#endif /* !USERSPACE */
 }
 
 
@@ -1114,6 +1120,7 @@ PS2Controller::~PS2Controller()
 // Note: GPIO_UNUSED is a placeholder used to disable PS/2 port 1.
 void PS2Controller::begin(gpio_num_t port0_clkGPIO, gpio_num_t port0_datGPIO, gpio_num_t port1_clkGPIO, gpio_num_t port1_datGPIO)
 {
+#ifndef USERSPACE
   // ULP stuff is always active, even when end() is called
   if (!s_initDone) {
 
@@ -1194,6 +1201,7 @@ void PS2Controller::begin(gpio_num_t port0_clkGPIO, gpio_num_t port0_datGPIO, gp
       }
     }
   }
+#endif /* !USERSPACE */
 }
 
 
@@ -1261,32 +1269,40 @@ void PS2Controller::end()
       delete s_mouse;
     s_mouse = nullptr;
 
+#ifndef USERSPACE
     for (int p = 0; p < 2; ++p)
       disableRX(p);
+#endif /* !USERSPACE */
   }
 }
 
 
 void PS2Controller::disableRX(int PS2Port)
 {
+#ifndef USERSPACE
   if (s_portEnabled[PS2Port])
     RTC_SLOW_MEM[RTCMEM_PORT0_RX_DISABLE + PS2Port] = 1;
+#endif /* !USERSPACE */
 }
 
 
 void PS2Controller::enableRX(int PS2Port)
 {
+#ifndef USERSPACE
   if (s_portEnabled[PS2Port]) {
     // enable RX only if there is not data waiting
     if (!dataAvailable(PS2Port))
       RTC_SLOW_MEM[RTCMEM_PORT0_RX_ENABLE + PS2Port] = 1;
   }
+#endif /* !USERSPACE */
 }
 
 
 bool PS2Controller::dataAvailable(int PS2Port)
 {
+#ifndef USERSPACE
   return uxQueueMessagesWaiting(s_dataIn[PS2Port]);
+#endif /* !USERSPACE */
 }
 
 
@@ -1295,6 +1311,7 @@ int PS2Controller::getData(int PS2Port, int timeOutMS)
 {
   int r = -1;
 
+#ifndef USERSPACE
   uint16_t w;
   if (xQueueReceive(s_dataIn[PS2Port], &w, msToTicks(timeOutMS))) {
 
@@ -1315,6 +1332,7 @@ int PS2Controller::getData(int PS2Port, int timeOutMS)
     RTC_SLOW_MEM[RTCMEM_PORT0_RX_ENABLE + PS2Port] = 1;
 
   }
+#endif /* !USERSPACE */
 
   return r;
 }
@@ -1322,29 +1340,36 @@ int PS2Controller::getData(int PS2Port, int timeOutMS)
 
 void PS2Controller::sendData(uint8_t data, int PS2Port)
 {
+#ifndef USERSPACE
   if (s_portEnabled[PS2Port]) {
     RTC_SLOW_MEM[RTCMEM_PORT0_DATAOUT + PS2Port] = 0x200 | ((!calcParity(data) & 1) << 8) | data;  // 0x200 = stop bit. Start bit is not specified here.
     RTC_SLOW_MEM[RTCMEM_PORT0_TX + PS2Port]      = 1;
   }
+#endif /* !USERSPACE */
 }
 
 
 bool PS2Controller::lock(int PS2Port, int timeOutMS)
 {
+#ifndef USERSPACE
   return s_portEnabled[PS2Port] ? xSemaphoreTakeRecursive(s_portLock[PS2Port], msToTicks(timeOutMS)) : true;
+#endif /* !USERSPACE */
 }
 
 
 void PS2Controller::unlock(int PS2Port)
 {
+#ifndef USERSPACE
   if (s_portEnabled[PS2Port])
     xSemaphoreGiveRecursive(s_portLock[PS2Port]);
+#endif /* !USERSPACE */
 }
 
 
 
 void IRAM_ATTR PS2Controller::ULPWakeISR(void * arg)
 {
+#ifndef USERSPACE
   uint32_t rtc_intr = READ_PERI_REG(RTC_CNTL_INT_ST_REG);
 
   if (rtc_intr & RTC_CNTL_SAR_INT_ST) {
@@ -1367,8 +1392,8 @@ void IRAM_ATTR PS2Controller::ULPWakeISR(void * arg)
 
   // clear interrupt
   WRITE_PERI_REG(RTC_CNTL_INT_CLR_REG, rtc_intr);
+#endif /* !USERSPACE */
 }
-
 
 } // end of namespace
 
