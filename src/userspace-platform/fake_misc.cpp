@@ -6,8 +6,8 @@
 
 bool is_fabgl_terminating = false;
 
-int esp_timer_get_time() {
-	return 0;
+int64_t esp_timer_get_time() {
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 void init_userspace_fabgl()

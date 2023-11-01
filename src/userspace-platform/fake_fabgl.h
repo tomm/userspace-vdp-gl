@@ -57,7 +57,7 @@ int heap_caps_get_free_size(int);
 inline bool psramInit() { return true; }
 inline void *ps_malloc(size_t sz) { return heap_caps_malloc(sz, MALLOC_CAP_8BIT); }
 
-extern int esp_timer_get_time();
+extern int64_t esp_timer_get_time();
 
 // RTOS
 typedef int TickType_t;

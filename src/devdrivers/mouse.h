@@ -43,6 +43,10 @@
 #include "comdrivers/ps2device.h"
 #include "displaycontroller.h"
 
+#ifdef USERSPACE
+#include <deque>
+#endif /* USERSPACE */
+
 
 namespace fabgl {
 
@@ -365,6 +369,11 @@ public:
    */
   static void quickCheckHardware()   { s_quickCheckHardware = true; }
 
+#ifdef USERSPACE
+  std::deque<MousePacket> m_injectedPackets;
+  std::mutex m_lock;
+  void injectPacket(MousePacket *p);
+#endif /* USERSPACE */
 
 private:
 

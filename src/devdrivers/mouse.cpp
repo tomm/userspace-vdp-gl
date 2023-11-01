@@ -52,6 +52,9 @@ Mouse::Mouse()
     m_wheelAcceleration(60000),
     m_absoluteQueue(nullptr),
     m_updateDisplayController(nullptr) {
+#ifndef USERSPACE
+      m_mouseType = Intellimouse;
+#endif /* !USERSPACE */
 }
 
 
@@ -129,17 +132,36 @@ int Mouse::getPacketSize()
   return (m_mouseType == Intellimouse ? 4 : 3);
 }
 
+#ifdef USERSPACE
+void Mouse::injectPacket(MousePacket *p)
+{
+  auto lock = std::unique_lock<std::mutex>(m_lock);
+  m_injectedPackets.push_back(*p);
+}
+#endif /* USERSPACE */
 
 bool Mouse::packetAvailable()
 {
+#ifdef USERSPACE
+  auto lock = std::unique_lock<std::mutex>(m_lock);
+  return m_injectedPackets.size() > 0;
+#else
   return uxQueueMessagesWaiting(m_receivedPacket) > 0;
+#endif /* !USERSPACE */
 }
 
 
 bool Mouse::getNextPacket(MousePacket * packet, int timeOutMS, bool requestResendOnTimeOut)
 {
 #ifdef USERSPACE
-  return false;
+  auto lock = std::unique_lock<std::mutex>(m_lock);
+  if (m_injectedPackets.size() > 0) {
+    *packet = m_injectedPackets.front();
+    m_injectedPackets.pop_front();
+    return true;
+  } else {
+    return false;
+  }
 #else
   return xQueueReceive(m_receivedPacket, packet, msToTicks(timeOutMS));
 #endif /* !USERSPACE */
@@ -249,6 +271,11 @@ void Mouse::updateAbsolutePosition(MouseDelta * delta)
 
   int64_t now   = esp_timer_get_time();
   int deltaTime = now - m_prevDeltaTime; // time in microseconds
+
+#ifdef USERSPACE
+  // enforce a minimum deltaTime of 2ms, so mouse accel isn't too batshit
+  deltaTime = deltaTime < 2000 ? 2000 : deltaTime;
+#endif /* USERSPACE */
 
   if (deltaTime < maxDeltaTimeUS) {
 
