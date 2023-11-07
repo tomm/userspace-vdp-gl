@@ -1120,7 +1120,9 @@ PS2Controller::~PS2Controller()
 // Note: GPIO_UNUSED is a placeholder used to disable PS/2 port 1.
 void PS2Controller::begin(gpio_num_t port0_clkGPIO, gpio_num_t port0_datGPIO, gpio_num_t port1_clkGPIO, gpio_num_t port1_datGPIO)
 {
-#ifndef USERSPACE
+#ifdef USERSPACE
+  s_initDone = true;
+#else /*!USERSPACE*/
   // ULP stuff is always active, even when end() is called
   if (!s_initDone) {
 
