@@ -649,6 +649,9 @@ bool Keyboard::blockingGetVirtualKey(VirtualKeyItem * item)
   return item->vk != VK_NONE;
 }
 
+bool Keyboard::map(VirtualKey code) {
+	return (m_VKMap[(int)code >> 3] & 1 << ((int)code & 7)) != 0;
+}
 
 void Keyboard::injectVirtualKey(VirtualKeyItem const & item, bool insert)
 {
