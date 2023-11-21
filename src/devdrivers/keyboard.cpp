@@ -78,13 +78,13 @@ void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port)
   m_LALT       = false;
   m_RALT       = false;
   m_SHIFT      = false;
-  m_CAPSLOCK   = false;
+  m_CAPSLOCK   = true;
   m_GUI        = false;
   m_NUMLOCK    = false;
   m_SCROLLLOCK = false;
 
   m_numLockLED     = false;
-  m_capsLockLED    = false;
+  m_capsLockLED    = true;
   m_scrollLockLED  = false;
 
   reset();

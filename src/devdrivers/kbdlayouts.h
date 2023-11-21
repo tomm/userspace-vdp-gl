@@ -120,11 +120,36 @@ extern const KeyboardLayout NorwegianLayout;
 /** @brief Japanese keyboard layout */
 extern const KeyboardLayout JapaneseLayout;
 
+/** @brief US International keyboard layout */
+extern const KeyboardLayout USInternationalLayout;
 
+/** @brief US International Alt-Gr dead keys keyboard layout */
+extern const KeyboardLayout USInternationalAltLayout;
+
+/** @brief Swiss German keyboard layout */
+extern const KeyboardLayout SwissGLayout;
+  
+/** @brief Swiss French keyboard layout */
+extern const KeyboardLayout SwissFLayout;
+  
+/** @brief Danish keyboard layout */
+extern const KeyboardLayout DanishLayout;
+  
+/** @brief Swedish keyboard layout */
+extern const KeyboardLayout SwedishLayout;
+  
+/** @brief Portuguese keyboard layout */
+extern const KeyboardLayout PortugueseLayout;
+
+/** @brief Brazilian Portuguese keyboard layout */
+extern const KeyboardLayout BrazilianPortugueseLayout;
+  
+
+  
 
 struct SupportedLayouts {
 
-  static constexpr int LAYOUTSCOUNT = 9;
+  static constexpr int LAYOUTSCOUNT = 17;
 
   static int count()               { return LAYOUTSCOUNT; }
 
@@ -139,6 +164,14 @@ struct SupportedLayouts {
         BelgianLayout.desc,
         NorwegianLayout.desc,
         JapaneseLayout.desc,
+	USInternationalLayout.desc,
+	USInternationalAltLayout.desc,
+	SwissGLayout.desc,
+	SwissFLayout.desc,
+	DanishLayout.desc,
+	SwedishLayout.desc,
+	PortugueseLayout.desc,
+	BrazilianPortugueseLayout.desc,
     };
     return NAMES;
   }
@@ -154,6 +187,14 @@ struct SupportedLayouts {
         BelgianLayout.name,
         NorwegianLayout.name,
         JapaneseLayout.name,
+	USInternationalLayout.name,
+	USInternationalAltLayout.name,
+	SwissGLayout.name,
+	SwissFLayout.name,
+	DanishLayout.name,
+	SwedishLayout.name,
+	PortugueseLayout.name,
+	BrazilianPortugueseLayout.name,
     };
     return SNAMES;
   }
@@ -169,6 +210,14 @@ struct SupportedLayouts {
         &BelgianLayout,
         &NorwegianLayout,
         &JapaneseLayout,
+	&USInternationalLayout,
+	&USInternationalAltLayout,
+	&SwissGLayout,
+	&SwissFLayout,
+	&DanishLayout,
+	&SwedishLayout,
+	&PortugueseLayout,
+	&BrazilianPortugueseLayout,
     };
     return LAYOUTS;
   }

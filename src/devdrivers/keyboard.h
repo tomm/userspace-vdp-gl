@@ -394,7 +394,6 @@ public:
 
   void injectScancode(uint16_t scancode, uint8_t isDown);
 
-
 private:
 
   VirtualKey scancodeToVK(uint8_t scancode, bool isExtended, KeyboardLayout const * layout = nullptr);
@@ -415,7 +414,7 @@ private:
   std::deque<VirtualKeyItem> m_virtualKeyQueue;
   std::mutex                m_virtualKeyQueueLock;
 
-  uint8_t                   m_VKMap[(int)(VK_LAST + 7) / 8];
+  uint8_t                   m_VKMap[(int)(VK_LAST + 7) / 8];//needed to handle shifts and alts correctly
 
   // allowed values: 1, 2 or 3
   // If virtual keys are enabled only 1 and 2 are possible. In case of scancode set 1 it is converted from scan code set 2, which is necessary
