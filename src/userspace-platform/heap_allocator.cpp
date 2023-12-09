@@ -2,7 +2,7 @@
 #include <unordered_map>
 #include <mutex>
 
-#define LIMIT_ESP32_RAM
+//#define LIMIT_ESP32_RAM
 
 // How much memory is already used by static data on VDP startup.
 // Values arrived at by examining free heap ram on a real Agon,
@@ -64,31 +64,29 @@ public:
 
 	void *alloc(size_t sz, int caps)
 	{
-#ifdef LIMIT_ESP32_RAM
 		auto lock = acquireLock();
 		const Esp32MemType type = esp32MemTypeFromCaps(caps);
+#ifdef LIMIT_ESP32_RAM
 		if (esp_ram_free[type] < sz) {
 			printf("ESP32 out of ram (caps 0x%x)!\n", caps);
 			return nullptr;
 		}
+#endif /* LIMIT_ESP32_RAM */
 		void *p = ::malloc(sz);
 		esp_ram_free[type] -= sz;
 		allocs.emplace(std::make_pair(p, Esp32Alloc(type, sz)));
-#endif /* LIMIT_ESP32_RAM */
 		return p;
 	}
 
 	void *dealloc(void *p)
 	{
 		::free(p);
-#ifdef LIMIT_ESP32_RAM
 		auto lock = acquireLock();
 		auto iter = allocs.find(p);
 		if (iter != allocs.end()) {
 			esp_ram_free[iter->second.type] += iter->second.size;
 			allocs.erase(iter);
 		}
-#endif /* LIMIT_ESP32_RAM */
 		return p;
 	}
 
