@@ -451,8 +451,8 @@ void Terminal::connectSerialPort(HardwareSerial & serialPort, bool autoXONXOFF)
 
   m_serialPort->setRxBufferSize(Terminal::inputQueueSize);
 
-  if (!m_keyboardReaderTaskHandle && m_keyboard->isKeyboardAvailable())
-    xTaskCreate(&keyboardReaderTask, "terminal_kb", Terminal::keyboardReaderTaskStackSize, this, FABGLIB_KEYBOARD_READER_TASK_PRIORITY, &m_keyboardReaderTaskHandle);
+  //if (!m_keyboardReaderTaskHandle && m_keyboard->isKeyboardAvailable())
+    //xTaskCreate(&keyboardReaderTask, "terminal_kb", Terminal::keyboardReaderTaskStackSize, this, FABGLIB_KEYBOARD_READER_TASK_PRIORITY, &m_keyboardReaderTaskHandle);
 
   // just in case a reset occurred after an XOFF
   if (autoXONXOFF)
@@ -2423,7 +2423,6 @@ void Terminal::charsConsumerTask(void * pvParameters)
 
   task_loop {
     term->consumeInputQueue();
-    vTaskDelay(1); // -TM-
   }
 }
 
