@@ -2755,7 +2755,7 @@ uint8_t Terminal::consumeParamsAndGetCode(int * params, int * paramsCount, bool 
       #endif
 
       // reset non specified parameters
-      while (p < params + FABGLIB_MAX_CSI_PARAMS)
+      while (p < params + FABGLIB_MAX_CSI_PARAMS-1)
         *(++p) = 0;
 
       return c;
@@ -2813,7 +2813,10 @@ void Terminal::consumeCSI()
     // ESC [ f : HVP, Move cursor to the indicated row, column
     case 'H':
     case 'f':
-      setCursorPos(params[1], getAbsoluteRow(params[0]));
+      if (paramsCount>=2)
+       setCursorPos(params[1], getAbsoluteRow(params[0]));
+      else
+        setCursorPos(1,1);
       break;
 
     // ESC [ g : TBC, Clear one or all tab stops
