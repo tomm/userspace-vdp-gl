@@ -3415,6 +3415,10 @@ void Terminal::consumeDCS()
   bool questionMarkFound;
   int params[FABGLIB_MAX_CSI_PARAMS];
   int paramsCount;
+
+  // zero the memory allocated to params
+  memset(params, 0, FABGLIB_MAX_CSI_PARAMS * sizeof(int))
+
   uint8_t c = consumeParamsAndGetCode(params, &paramsCount, &questionMarkFound);
 
   // get DCS content up to ST
