@@ -63,6 +63,9 @@
 
 #pragma GCC optimize ("O2")
 
+#ifdef USERSPACE
+static bool is_terminal_exiting = false;
+#endif /* USERSPACE */
 
 namespace fabgl {
 
@@ -328,6 +331,9 @@ void Terminal::syncDisplayController()
 
 bool Terminal::begin(BaseDisplayController * displayController, int maxColumns, int maxRows, Keyboard * keyboard)
 {
+#ifdef USERSPACE
+  is_terminal_exiting = false;
+#endif /* USERSPACE */
   m_displayController = displayController;
   m_bitmappedDisplayController = (m_displayController->controllerType() == DisplayControllerType::Bitmapped);
 
@@ -417,6 +423,12 @@ bool Terminal::begin(BaseDisplayController * displayController, int maxColumns, 
 
 void Terminal::end()
 {
+#ifdef USERSPACE
+  is_terminal_exiting = true;
+  // give threads time to exit
+  vTaskDelay(10);
+#endif /* USERSPACE */
+
   if (m_keyboardReaderTaskHandle)
     vTaskDelete(m_keyboardReaderTaskHandle);
 
@@ -1175,6 +1187,8 @@ bool Terminal::enableBlinkingText(bool value)
 void Terminal::blinkTimerFunc(Terminal *term)
 {
   task_loop {
+    if (is_terminal_exiting) break;
+
     vTaskDelay(FABGLIB_DEFAULT_BLINK_PERIOD_MS);
 
     if (term->isActive()) {
@@ -1936,6 +1950,7 @@ int Terminal::availableForWrite()
 bool Terminal::addToInputQueue(uint8_t c, bool fromISR)
 {
   auto lock = std::unique_lock<std::mutex>(m_inputQueueLock);
+  if (is_terminal_exiting) return false;
   m_inputQueue.push_back(c);
   return true;
 #if 0
@@ -1950,6 +1965,7 @@ bool Terminal::addToInputQueue(uint8_t c, bool fromISR)
 bool Terminal::insertToInputQueue(uint8_t c, bool fromISR)
 {
   auto lock = std::unique_lock<std::mutex>(m_inputQueueLock);
+  if (is_terminal_exiting) return false;
   m_inputQueue.push_front(c);
   return true;
 #if 0
@@ -2389,9 +2405,13 @@ GlyphOptions Terminal::getGlyphOptionsAt(int X, int Y)
 uint8_t Terminal::getNextCode(bool processCtrlCodes)
 {
   for (;; vTaskDelay(1)) {
+#ifdef USERSPACE
+    if (is_terminal_exiting) return 0;
+#endif /* USERSPACE */
     uint8_t c;
     {
       auto lock = std::unique_lock<std::mutex>(m_inputQueueLock);
+      if (is_terminal_exiting) return 0;
       if (m_inputQueue.size() > 0) {
         c = m_inputQueue.front();
         m_inputQueue.pop_front();
@@ -2422,6 +2442,8 @@ void Terminal::charsConsumerTask(void * pvParameters)
   Terminal * term = (Terminal*) pvParameters;
 
   task_loop {
+    if (is_terminal_exiting) break;
+
     term->consumeInputQueue();
   }
 }
@@ -4655,6 +4677,7 @@ void Terminal::keyboardReaderTask(void * pvParameters)
   Terminal * term = (Terminal*) pvParameters;
 
   task_loop {
+    if (is_terminal_exiting) break;
 
 #if 0
     if (!term->isActive())
