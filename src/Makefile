@@ -31,17 +31,20 @@ SRCS = \
        userspace-platform/Stream.cpp \
        userspace-platform/HardwareSerial.cpp \
 
-OBJS = $(SRCS:.cpp=.o)
+OBJS = $(SRCS:.cpp=$(SUFFIX).o)
+
+%$(SUFFIX).o: %.cpp
+	$(CXX) $(CFLAGS) $(OPTIONS) -c $< -o $@
 
 .cpp.o:
 	$(CXX) $(CFLAGS) $(OPTIONS) -c $< -o $@
 
-vdp-gl.a: $(OBJS)
-	ar -rcs vdp-gl.a $(OBJS) 
+vdp-gl$(SUFFIX).a: $(OBJS)
+	ar -rcs vdp-gl$(SUFFIX).a $(OBJS) 
 
 clean:
 	-rm $(OBJS)
-	-rm vdp-gl.a
+	-rm vdp-gl$(SUFFIX).a
 
 depends: $(SRCS)
 	$(CXX) -MM $(CFLAGS) $(SRCS) > Makefile.dep
