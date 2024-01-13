@@ -1,0 +1,256 @@
+canvas.o: canvas.cpp canvas.h displaycontroller.h \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/queue.h userspace-platform/freertos/task.h \
+ fabglconf.h userspace-platform/esp_wifi.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/HardwareSerial.h \
+ userspace-platform/Stream.h fabfonts.h fonts/font_4x6.h fonts/font_5x7.h \
+ fonts/font_5x8.h fonts/font_6x8.h fonts/font_6x9.h fonts/font_6x10.h \
+ fonts/font_6x12.h fonts/font_6x13.h fonts/font_7x13.h fonts/font_7x14.h \
+ fonts/font_8x13.h fonts/font_8x8.h fonts/font_8x9.h fonts/font_8x14.h \
+ fonts/font_8x16.h fonts/font_8x19.h fonts/font_9x15.h fonts/font_9x18.h \
+ fonts/font_10x20.h fonts/font_slant_8x14.h fonts/font_sanserif_8x16.h \
+ fonts/font_sanserif_8x14.h fonts/font_lcd_8x14.h \
+ fonts/font_courier_8x14.h fonts/font_computer_8x14.h \
+ fonts/font_bigserif_8x14.h fonts/font_bigserif_8x16.h \
+ fonts/font_block_8x14.h fonts/font_broadway_8x14.h \
+ fonts/font_oldengl_8x16.h fonts/font_wiggly_8x16.h fonts/font_std_12.h \
+ fonts/font_std_14.h fonts/font_std_15.h fonts/font_std_16.h \
+ fonts/font_std_17.h fonts/font_std_18.h fonts/font_std_22.h \
+ fonts/font_std_24.h
+codepages.o: codepages.cpp codepages.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h
+collisiondetector.o: collisiondetector.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h collisiondetector.h fabglconf.h \
+ userspace-platform/esp_wifi.h displaycontroller.h \
+ userspace-platform/freertos/queue.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/HardwareSerial.h \
+ userspace-platform/Stream.h userspace-platform/malloc_wrapper.h
+ps2device.o: comdrivers/ps2device.cpp \
+ userspace-platform/freertos/FreeRTOS.h comdrivers/ps2device.h \
+ userspace-platform/freertos/semphr.h fabglconf.h \
+ userspace-platform/esp_wifi.h comdrivers/ps2controller.h \
+ userspace-platform/freertos/task.h userspace-platform/freertos/timers.h \
+ fabutils.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h
+ps2controller.o: comdrivers/ps2controller.cpp \
+ userspace-platform/freertos/FreeRTOS.h comdrivers/ps2controller.h \
+ userspace-platform/freertos/task.h userspace-platform/freertos/timers.h \
+ fabutils.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ fabglconf.h userspace-platform/esp_wifi.h devdrivers/keyboard.h \
+ comdrivers/ps2device.h userspace-platform/freertos/semphr.h \
+ devdrivers/kbdlayouts.h codepages.h devdrivers/mouse.h \
+ displaycontroller.h userspace-platform/freertos/queue.h
+kbdlayouts.o: devdrivers/kbdlayouts.cpp devdrivers/kbdlayouts.h \
+ fabutils.h userspace-platform/fake_fabgl.h \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h
+keyboard.o: devdrivers/keyboard.cpp fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ userspace-platform/freertos/task.h userspace-platform/freertos/timers.h \
+ userspace-platform/freertos/queue.h devdrivers/keyboard.h fabglconf.h \
+ userspace-platform/esp_wifi.h comdrivers/ps2controller.h \
+ comdrivers/ps2device.h userspace-platform/freertos/semphr.h \
+ devdrivers/kbdlayouts.h codepages.h userspace-platform/malloc_wrapper.h
+mouse.o: devdrivers/mouse.cpp userspace-platform/freertos/FreeRTOS.h \
+ devdrivers/mouse.h userspace-platform/freertos/timers.h fabglconf.h \
+ userspace-platform/esp_wifi.h fabutils.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ comdrivers/ps2device.h userspace-platform/freertos/semphr.h \
+ displaycontroller.h userspace-platform/freertos/queue.h \
+ userspace-platform/freertos/task.h comdrivers/ps2controller.h
+soundgen.o: devdrivers/soundgen.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/timers.h userspace-platform/soc/i2s_reg.h \
+ userspace-platform/driver/periph_ctrl.h userspace-platform/soc/rtc.h \
+ userspace-platform/malloc_wrapper.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ devdrivers/soundgen.h fabglconf.h userspace-platform/esp_wifi.h \
+ fabutils.h
+vga16controller.o: dispdrivers/vga16controller.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/soc/i2s_struct.h \
+ userspace-platform/soc/i2s_reg.h userspace-platform/driver/periph_ctrl.h \
+ userspace-platform/soc/rtc.h userspace-platform/esp_spi_flash.h \
+ userspace-platform/esp_heap_caps.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/HardwareSerial.h \
+ userspace-platform/Stream.h dispdrivers/vga16controller.h \
+ userspace-platform/driver/gpio.h userspace-platform/freertos/queue.h \
+ fabglconf.h userspace-platform/esp_wifi.h devdrivers/swgenerator.h \
+ displaycontroller.h dispdrivers/vgapalettedcontroller.h \
+ dispdrivers/vgabasecontroller.h userspace-platform/malloc_wrapper.h
+vga2controller.o: dispdrivers/vga2controller.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/soc/i2s_struct.h \
+ userspace-platform/soc/i2s_reg.h userspace-platform/driver/periph_ctrl.h \
+ userspace-platform/soc/rtc.h userspace-platform/esp_spi_flash.h \
+ userspace-platform/esp_heap_caps.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/HardwareSerial.h \
+ userspace-platform/Stream.h dispdrivers/vga2controller.h \
+ userspace-platform/driver/gpio.h userspace-platform/freertos/queue.h \
+ fabglconf.h userspace-platform/esp_wifi.h devdrivers/swgenerator.h \
+ displaycontroller.h dispdrivers/vgapalettedcontroller.h \
+ dispdrivers/vgabasecontroller.h userspace-platform/malloc_wrapper.h
+vga4controller.o: dispdrivers/vga4controller.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/soc/i2s_struct.h \
+ userspace-platform/soc/i2s_reg.h userspace-platform/driver/periph_ctrl.h \
+ userspace-platform/soc/rtc.h userspace-platform/esp_spi_flash.h \
+ userspace-platform/esp_heap_caps.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/HardwareSerial.h \
+ userspace-platform/Stream.h dispdrivers/vga4controller.h \
+ userspace-platform/driver/gpio.h userspace-platform/freertos/queue.h \
+ fabglconf.h userspace-platform/esp_wifi.h devdrivers/swgenerator.h \
+ displaycontroller.h dispdrivers/vgapalettedcontroller.h \
+ dispdrivers/vgabasecontroller.h userspace-platform/malloc_wrapper.h
+vga8controller.o: dispdrivers/vga8controller.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/soc/i2s_struct.h \
+ userspace-platform/soc/i2s_reg.h userspace-platform/driver/periph_ctrl.h \
+ userspace-platform/soc/rtc.h userspace-platform/esp_spi_flash.h \
+ userspace-platform/esp_heap_caps.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/HardwareSerial.h \
+ userspace-platform/Stream.h dispdrivers/vga8controller.h \
+ userspace-platform/driver/gpio.h userspace-platform/freertos/queue.h \
+ fabglconf.h userspace-platform/esp_wifi.h devdrivers/swgenerator.h \
+ displaycontroller.h dispdrivers/vgapalettedcontroller.h \
+ dispdrivers/vgabasecontroller.h userspace-platform/malloc_wrapper.h
+vgabasecontroller.o: dispdrivers/vgabasecontroller.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/soc/i2s_struct.h \
+ userspace-platform/soc/i2s_reg.h userspace-platform/driver/periph_ctrl.h \
+ userspace-platform/soc/rtc.h fabutils.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ devdrivers/swgenerator.h dispdrivers/vgabasecontroller.h \
+ userspace-platform/driver/gpio.h userspace-platform/freertos/queue.h \
+ fabglconf.h userspace-platform/esp_wifi.h displaycontroller.h \
+ userspace-platform/malloc_wrapper.h
+vgacontroller.o: dispdrivers/vgacontroller.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/soc/i2s_struct.h \
+ userspace-platform/soc/i2s_reg.h userspace-platform/driver/periph_ctrl.h \
+ userspace-platform/soc/rtc.h userspace-platform/esp_spi_flash.h \
+ fabutils.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ dispdrivers/vgacontroller.h userspace-platform/driver/gpio.h \
+ userspace-platform/freertos/queue.h fabglconf.h \
+ userspace-platform/esp_wifi.h devdrivers/swgenerator.h \
+ displaycontroller.h dispdrivers/vgabasecontroller.h \
+ userspace-platform/malloc_wrapper.h
+vgapalettedcontroller.o: dispdrivers/vgapalettedcontroller.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/soc/i2s_struct.h \
+ userspace-platform/soc/i2s_reg.h userspace-platform/driver/periph_ctrl.h \
+ userspace-platform/soc/rtc.h userspace-platform/esp_spi_flash.h \
+ userspace-platform/esp_heap_caps.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/HardwareSerial.h \
+ userspace-platform/Stream.h dispdrivers/vgapalettedcontroller.h \
+ userspace-platform/driver/gpio.h userspace-platform/freertos/queue.h \
+ fabglconf.h userspace-platform/esp_wifi.h devdrivers/swgenerator.h \
+ displaycontroller.h dispdrivers/vgabasecontroller.h \
+ userspace-platform/malloc_wrapper.h
+vgadirectcontroller.o: dispdrivers/vgadirectcontroller.cpp \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/soc/i2s_struct.h \
+ userspace-platform/soc/i2s_reg.h userspace-platform/driver/periph_ctrl.h \
+ userspace-platform/soc/rtc.h userspace-platform/esp_spi_flash.h \
+ userspace-platform/esp_heap_caps.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ userspace-platform/malloc_wrapper.h fabutils.h \
+ dispdrivers/vgadirectcontroller.h userspace-platform/driver/gpio.h \
+ userspace-platform/freertos/queue.h fabglconf.h \
+ userspace-platform/esp_wifi.h devdrivers/swgenerator.h \
+ displaycontroller.h dispdrivers/vgabasecontroller.h
+displaycontroller.o: displaycontroller.cpp displaycontroller.h \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/queue.h userspace-platform/freertos/task.h \
+ fabglconf.h userspace-platform/esp_wifi.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/HardwareSerial.h \
+ userspace-platform/Stream.h images/cursors.h \
+ userspace-platform/malloc_wrapper.h
+fabfonts.o: fabfonts.cpp fabfonts.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ fabglconf.h userspace-platform/esp_wifi.h fonts/font_4x6.h \
+ fonts/font_5x7.h fonts/font_5x8.h fonts/font_6x8.h fonts/font_6x9.h \
+ fonts/font_6x10.h fonts/font_6x12.h fonts/font_6x13.h fonts/font_7x13.h \
+ fonts/font_7x14.h fonts/font_8x13.h fonts/font_8x8.h fonts/font_8x9.h \
+ fonts/font_8x14.h fonts/font_8x16.h fonts/font_8x19.h fonts/font_9x15.h \
+ fonts/font_9x18.h fonts/font_10x20.h fonts/font_slant_8x14.h \
+ fonts/font_sanserif_8x16.h fonts/font_sanserif_8x14.h \
+ fonts/font_lcd_8x14.h fonts/font_courier_8x14.h \
+ fonts/font_computer_8x14.h fonts/font_bigserif_8x14.h \
+ fonts/font_bigserif_8x16.h fonts/font_block_8x14.h \
+ fonts/font_broadway_8x14.h fonts/font_oldengl_8x16.h \
+ fonts/font_wiggly_8x16.h fonts/font_std_12.h fonts/font_std_14.h \
+ fonts/font_std_15.h fonts/font_std_16.h fonts/font_std_17.h \
+ fonts/font_std_18.h fonts/font_std_22.h fonts/font_std_24.h
+fabutils.o: fabutils.cpp userspace-platform/soc/rtc.h fabutils.h \
+ userspace-platform/fake_fabgl.h userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ dispdrivers/vgacontroller.h userspace-platform/driver/gpio.h \
+ userspace-platform/freertos/queue.h fabglconf.h \
+ userspace-platform/esp_wifi.h devdrivers/swgenerator.h \
+ displaycontroller.h userspace-platform/freertos/task.h \
+ dispdrivers/vgabasecontroller.h dispdrivers/vga2controller.h \
+ dispdrivers/vgapalettedcontroller.h dispdrivers/vga16controller.h \
+ comdrivers/ps2controller.h userspace-platform/freertos/timers.h \
+ userspace-platform/malloc_wrapper.h
+terminal.o: terminal.cpp fabglconf.h userspace-platform/esp_wifi.h \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/freertos/timers.h \
+ userspace-platform/esp_attr.h userspace-platform/rom/uart.h \
+ userspace-platform/soc/uart_reg.h userspace-platform/soc/uart_struct.h \
+ userspace-platform/soc/io_mux_reg.h \
+ userspace-platform/soc/gpio_sig_map.h userspace-platform/soc/dport_reg.h \
+ userspace-platform/soc/rtc.h userspace-platform/esp_intr_alloc.h fabgl.h \
+ fabutils.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ fabfonts.h fonts/font_4x6.h fonts/font_5x7.h fonts/font_5x8.h \
+ fonts/font_6x8.h fonts/font_6x9.h fonts/font_6x10.h fonts/font_6x12.h \
+ fonts/font_6x13.h fonts/font_7x13.h fonts/font_7x14.h fonts/font_8x13.h \
+ fonts/font_8x8.h fonts/font_8x9.h fonts/font_8x14.h fonts/font_8x16.h \
+ fonts/font_8x19.h fonts/font_9x15.h fonts/font_9x18.h fonts/font_10x20.h \
+ fonts/font_slant_8x14.h fonts/font_sanserif_8x16.h \
+ fonts/font_sanserif_8x14.h fonts/font_lcd_8x14.h \
+ fonts/font_courier_8x14.h fonts/font_computer_8x14.h \
+ fonts/font_bigserif_8x14.h fonts/font_bigserif_8x16.h \
+ fonts/font_block_8x14.h fonts/font_broadway_8x14.h \
+ fonts/font_oldengl_8x16.h fonts/font_wiggly_8x16.h fonts/font_std_12.h \
+ fonts/font_std_14.h fonts/font_std_15.h fonts/font_std_16.h \
+ fonts/font_std_17.h fonts/font_std_18.h fonts/font_std_22.h \
+ fonts/font_std_24.h terminal.h userspace-platform/freertos/semphr.h \
+ canvas.h displaycontroller.h userspace-platform/freertos/queue.h \
+ devdrivers/keyboard.h comdrivers/ps2controller.h comdrivers/ps2device.h \
+ devdrivers/kbdlayouts.h codepages.h terminfo.h devdrivers/soundgen.h \
+ dispdrivers/vgacontroller.h userspace-platform/driver/gpio.h \
+ devdrivers/swgenerator.h dispdrivers/vgabasecontroller.h \
+ dispdrivers/vga2controller.h dispdrivers/vgapalettedcontroller.h \
+ dispdrivers/vga4controller.h dispdrivers/vga8controller.h \
+ dispdrivers/vga16controller.h dispdrivers/vgadirectcontroller.h \
+ devdrivers/mouse.h scene.h collisiondetector.h \
+ userspace-platform/malloc_wrapper.h
+terminfo.o: terminfo.cpp terminfo.h devdrivers/keyboard.h fabglconf.h \
+ userspace-platform/esp_wifi.h comdrivers/ps2controller.h \
+ userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/freertos/task.h userspace-platform/freertos/timers.h \
+ fabutils.h userspace-platform/fake_fabgl.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ comdrivers/ps2device.h userspace-platform/freertos/semphr.h \
+ devdrivers/kbdlayouts.h codepages.h
+esp32time.o: userspace-platform/esp32time.cpp \
+ userspace-platform/ESP32Time.h
+fake_misc.o: userspace-platform/fake_misc.cpp \
+ userspace-platform/fake_fabgl.h userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h \
+ userspace-platform/malloc_wrapper.h
+heap_allocator.o: userspace-platform/heap_allocator.cpp \
+ userspace-platform/fake_fabgl.h userspace-platform/freertos/FreeRTOS.h \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h
+Stream.o: userspace-platform/Stream.cpp userspace-platform/Stream.h \
+ userspace-platform/freertos/FreeRTOS.h
+HardwareSerial.o: userspace-platform/HardwareSerial.cpp \
+ userspace-platform/HardwareSerial.h userspace-platform/Stream.h

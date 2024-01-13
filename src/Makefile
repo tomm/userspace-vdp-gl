@@ -20,6 +20,7 @@ SRCS = \
        dispdrivers/vgabasecontroller.cpp \
        dispdrivers/vgacontroller.cpp \
        dispdrivers/vgapalettedcontroller.cpp \
+       dispdrivers/vgadirectcontroller.cpp \
        displaycontroller.cpp \
        fabfonts.cpp \
        fabutils.cpp \
