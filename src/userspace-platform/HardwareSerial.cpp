@@ -20,6 +20,8 @@ int HardwareSerial::available() {
 }
 int HardwareSerial::read() {
 	std::unique_lock<std::mutex> lock(m_lock_in);
+	if (m_buf_in.empty())
+		return -1;
 	uint8_t v = m_buf_in.front();
 	m_buf_in.pop_front();
 	return v;

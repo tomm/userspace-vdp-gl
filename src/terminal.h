@@ -1337,7 +1337,7 @@ public:
    */
   size_t write(uint8_t c);
 
-  //using Print::write;
+  using Print::write;
 
   /**
    * @brief Like localWrite() but sends also to serial port if connected

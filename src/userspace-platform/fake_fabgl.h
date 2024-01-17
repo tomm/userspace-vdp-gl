@@ -77,6 +77,7 @@ int sqrt(int x);
 
 #define SERIAL_8N1 0
 #define HW_FLOWCTRL_RTS 0
+#define HW_FLOWCTRL_CTS_RTS 1
 extern struct HardwareSerial Serial2;
 
 // New stuff for userspace vdp
