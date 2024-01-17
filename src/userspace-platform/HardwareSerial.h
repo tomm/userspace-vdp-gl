@@ -12,10 +12,20 @@ struct HardwareSerial: public Stream {
     int available() override;
     int read() override;
     size_t write(uint8_t) override;
-
+    inline size_t write (uint8_t* buffer, size_t len)
+    {
+        for (int i=0;i<len;i++)
+            write(buffer[i]);
+        return len;
+    }
+    inline size_t write(const char * s)
+    {
+        return write((uint8_t*) s, strlen(s));
+    }
     void end() {}
     void setRxBufferSize(int) {}
     void setHwFlowCtrlMode(int, int) {}
+    bool setHwFlowCtrlMode(uint8_t mode, uint8_t threshold = 64) {}   // 64 is half FIFO Length
     void begin(int, int, int, int) {}
     void setPins(int, int, int, int) {}
     void print(const char *) {}
