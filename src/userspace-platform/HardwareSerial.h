@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstring>
 #include <stdint.h>
 #include <deque>
 #include <mutex>
@@ -24,8 +25,7 @@ struct HardwareSerial: public Stream {
     }
     void end() {}
     void setRxBufferSize(int) {}
-    void setHwFlowCtrlMode(int, int) {}
-    bool setHwFlowCtrlMode(uint8_t mode, uint8_t threshold = 64) {}   // 64 is half FIFO Length
+    void setHwFlowCtrlMode(uint8_t mode, uint8_t threshold = 64) {}   // 64 is half FIFO Length
     void begin(int, int, int, int) {}
     void setPins(int, int, int, int) {}
     void print(const char *) {}

@@ -1,6 +1,6 @@
 CXX ?= g++
 LIBS = -g
-CFLAGS = $(EXTRA_FLAGS) -Wall -fPIC -fno-exceptions -DUSERSPACE -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform
+CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -fno-exceptions -DUSERSPACE -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform
 OPTIONS = 
 
 SRCS = \
