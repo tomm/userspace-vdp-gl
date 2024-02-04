@@ -55,6 +55,6 @@ int xTaskCreate(TaskFunction_t pvTaskCode, const char *const pcName, const uint3
 
 void vTaskDelay(int n)
 {
-	// n isn't ms, but whatever
-	delay(n);
+	// because portTICK_PERIOD_MS = 1 on userspace fabgl
+	std::this_thread::sleep_for(std::chrono::milliseconds(n));
 }
