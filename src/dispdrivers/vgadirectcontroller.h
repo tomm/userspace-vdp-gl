@@ -131,6 +131,8 @@ public:
    */
   void setScanlinesPerCallBack(int value)    { m_linesCount = value * 2; }
 
+  void fillRow(int y, int x1, int x2, RGB888 color) override {}
+
   /**
    * @brief Sets a scanline buffer
    *
