@@ -240,6 +240,17 @@ void VGADirectController::drawEllipse(Size const & size, Rect & updateRect)
 {
 }
 
+void drawArc(Rect const & rect, Rect & updateRect)
+{
+}
+
+void fillSegment(Rect const & rect, Rect & updateRect)
+{
+}
+
+void fillSector(Rect const & rect, Rect & updateRect)
+{
+}
 
 void VGADirectController::clear(Rect & updateRect)
 {

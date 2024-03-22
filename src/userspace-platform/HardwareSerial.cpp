@@ -26,6 +26,13 @@ int HardwareSerial::read() {
 	m_buf_in.pop_front();
 	return v;
 }
+int HardwareSerial::peek() {
+	std::unique_lock<std::mutex> lock(m_lock_in);
+	if (m_buf_in.empty())
+		return -1;
+	uint8_t v = m_buf_in.front();
+	return v;
+}
 bool HardwareSerial::readFromOutQueue(uint8_t *out) {
 	std::unique_lock<std::mutex> lock(m_lock_out);
 	if (m_buf_out.size()) {
