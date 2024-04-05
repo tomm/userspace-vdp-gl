@@ -46,14 +46,14 @@ bool HardwareSerial::readFromOutQueue(uint8_t *out) {
 	}
 }
 int HardwareSerial::readBytes(uint8_t *buffer, int len) {
-	auto start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	//auto start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 	for (int i=0; i<len; i++) {
 		while (!this->available()) {
 			// if timeout
-			if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - start_time >= timeout_ms) {
-				return len;
-			}
+			//if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - start_time >= timeout_ms) {
+				//return len;
+			//}
 			vTaskDelay(1);
 		}
 		buffer[i] = read();
