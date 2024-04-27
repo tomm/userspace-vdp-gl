@@ -59,9 +59,6 @@ inline void *ps_malloc(size_t sz) { return heap_caps_malloc(sz, MALLOC_CAP_8BIT)
 
 extern int64_t esp_timer_get_time();
 
-// RTOS
-typedef int TickType_t;
-
 // ESP32
 #define LOW 0
 #define HIGH 1

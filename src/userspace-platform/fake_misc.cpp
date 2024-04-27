@@ -22,7 +22,7 @@ void delay(int ms) {
 	} while (is_fabgl_terminating);
 }
 
-unsigned long millis() {
+uint64_t millis() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
@@ -58,3 +58,9 @@ void vTaskDelay(int n)
 	// because portTICK_PERIOD_MS = 1 on userspace fabgl
 	std::this_thread::sleep_for(std::chrono::milliseconds(n));
 }
+
+TickType_t xTaskGetTickCountFromISR()
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
