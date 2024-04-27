@@ -65,7 +65,7 @@ extern int64_t esp_timer_get_time();
 void digitalWrite(int, int);
 
 // ESP32Tim;
-unsigned long millis();
+uint64_t millis();
 
 // FABGL
 
