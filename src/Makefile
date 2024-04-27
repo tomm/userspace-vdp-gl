@@ -1,6 +1,6 @@
 CXX ?= g++
 LIBS = -g
-CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -DUSERSPACE -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform
+CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -DUSERSPACE -DWIFI_TASK_CORE_ID=0 -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform
 OPTIONS = 
 
 SRCS = \

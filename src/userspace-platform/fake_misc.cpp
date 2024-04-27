@@ -33,12 +33,12 @@ int sqrt(int x) {
 void digitalWrite(int, int) {}
 
 /* FreeRTOS */
-int xTaskCreatePinnedToCore(TaskFunction_t pvTaskCode, const char *const pcName, const uint32_t usStackDepth, void *const pvParameters, int uxPriority, TaskHandle_t *const pvCreatedTask, const int xCoreID)
+BaseType_t xTaskCreatePinnedToCore(TaskFunction_t pvTaskCode, const char *const pcName, const uint32_t usStackDepth, void *const pvParameters, int uxPriority, TaskHandle_t *const pvCreatedTask, const int xCoreID)
 {
 	return xTaskCreate(pvTaskCode, pcName, usStackDepth, pvParameters, uxPriority, pvCreatedTask);
 }
 
-int xTaskCreate(TaskFunction_t pvTaskCode, const char *const pcName, const uint32_t usStackDepth, void *const pvParameters, int uxPriority, TaskHandle_t *const pvCreatedTask)
+BaseType_t xTaskCreate(TaskFunction_t pvTaskCode, const char *const pcName, const uint32_t usStackDepth, void *const pvParameters, int uxPriority, TaskHandle_t *const pvCreatedTask)
 {
 	//printf("Spawning thread %s...\n", pcName);
 	auto t = std::thread(pvTaskCode, pvParameters);
@@ -50,7 +50,7 @@ int xTaskCreate(TaskFunction_t pvTaskCode, const char *const pcName, const uint3
 	// before we wipe its arguments... :wince:
 	delay(1);
 
-	return 0;
+	return pdPASS;
 }
 
 void vTaskDelay(int n)
