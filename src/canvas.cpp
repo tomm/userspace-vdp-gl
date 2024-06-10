@@ -633,7 +633,11 @@ void Canvas::fillPath(Point const * points, int pointsCount)
 RGB888 Canvas::getPixel(int X, int Y)
 {
   RGB888 rgb;
-  m_displayController->readScreen(Rect(X, Y, X, Y), &rgb);
+  if (X >= 0 && Y >= 0
+      && X < m_displayController->getViewPortWidth()
+      && Y < m_displayController->getViewPortHeight()) {
+    m_displayController->readScreen(Rect(X, Y, X, Y), &rgb);
+  }
   return rgb;
 }
 
