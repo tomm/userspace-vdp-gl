@@ -1,6 +1,6 @@
 CXX ?= g++
 LIBS = -g
-CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -DUSERSPACE -DWIFI_TASK_CORE_ID=0 -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform
+CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -DUSERSPACE -DWIFI_TASK_CORE_ID=0 -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform -I./userspace-platform/matrix
 OPTIONS = 
 
 SRCS = \
@@ -31,6 +31,7 @@ SRCS = \
        userspace-platform/heap_allocator.cpp \
        userspace-platform/Stream.cpp \
        userspace-platform/HardwareSerial.cpp \
+       userspace-platform/matrix/mat.cpp \
 
 OBJS = $(SRCS:.cpp=$(SUFFIX).o)
 

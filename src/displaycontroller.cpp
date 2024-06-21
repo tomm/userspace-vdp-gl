@@ -455,6 +455,7 @@ void BitmappedDisplayController::addPrimitive(Primitive & primitive)
 // will be released inside primitive drawing code.
 void BitmappedDisplayController::primitiveReplaceDynamicBuffers(Primitive & primitive)
 {
+#ifndef USERSPACE
   switch (primitive.cmd) {
     case PrimitiveCmd::DrawPath:
     case PrimitiveCmd::FillPath:
@@ -489,6 +490,7 @@ void BitmappedDisplayController::primitiveReplaceDynamicBuffers(Primitive & prim
     default:
       break;
   }
+#endif /* !USERSPACE */
 }
 
 
@@ -832,6 +834,7 @@ void IRAM_ATTR BitmappedDisplayController::execPrimitive(Primitive const & prim,
       break;
     case PrimitiveCmd::DrawTransformedBitmap: {
       if (insideISR) {
+#ifndef USERSPACE
         uint32_t cp0_regs[18];
         // get FPU state
         uint32_t cp_state = xthal_get_cpenable();
@@ -843,9 +846,11 @@ void IRAM_ATTR BitmappedDisplayController::execPrimitive(Primitive const & prim,
           // enable FPU
           xthal_set_cpenable(1);
         }
+#endif /* !USERSPACE */
         
         drawBitmapWithTransform(prim.bitmapTransformedDrawingInfo, updateRect);
 
+#ifndef USERSPACE
         if (cp_state) {
           // Restore FPU registers
           xthal_restore_cp0(cp0_regs);
@@ -853,6 +858,7 @@ void IRAM_ATTR BitmappedDisplayController::execPrimitive(Primitive const & prim,
           // turn it back off
           xthal_set_cpenable(0);
         }
+#endif /* !USERSPACE */
       } else {
         drawBitmapWithTransform(prim.bitmapTransformedDrawingInfo, updateRect);
       }
@@ -1443,10 +1449,12 @@ void IRAM_ATTR BitmappedDisplayController::drawBitmapWithTransform(BitmapTransfo
 
   if (drawingRect.width() == 0 || drawingRect.height() == 0) {
     // no area within our current clipping rect to draw
+#ifndef USERSPACE
     if (drawingInfo.freeMatrix) {
       m_primDynMemPool.free((void*)drawingInfo.transformMatrix);
       m_primDynMemPool.free((void*)drawingInfo.transformInverse);
     }
+#endif /* !USERSPACE */
     return;
   }
 
@@ -1484,10 +1492,12 @@ void IRAM_ATTR BitmappedDisplayController::drawBitmapWithTransform(BitmapTransfo
 
   }
 
+#ifndef USERSPACE
   if (drawingInfo.freeMatrix) {
     m_primDynMemPool.free((void*)drawingInfo.transformMatrix);
     m_primDynMemPool.free((void*)drawingInfo.transformInverse);
   }
+#endif
 }
 
 
