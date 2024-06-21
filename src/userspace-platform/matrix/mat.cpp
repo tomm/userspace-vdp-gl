@@ -27,9 +27,18 @@ using std::ostream;
 using std::istream;
 using std::endl;
 
-namespace dspm {
-
-float Mat::abs_tol = 1e-10;
+esp_err_t dspm_mult_f32_ansi(const float *A, const float *B, float *C, int m, int n, int k)
+{
+    for (int i = 0 ; i < m ; i++) {
+        for (int j = 0 ; j < k ; j++) {
+            C[i * k + j] = A[i * n] * B[j];
+            for (int s = 1; s < n ; s++) {
+                C[i * k + j] += A[i * n + s] * B[s * k + j];
+            }
+        }
+    }
+    return ESP_OK;
+}
 
 esp_err_t dspm_add_f32(const float *input1, const float *input2, float *output, int rows, int cols, int padd1, int padd2, int padd_out, int step1, int step2, int step_out)
 {
@@ -103,14 +112,6 @@ esp_err_t dsps_add_f32(const float *input1, const float *input2, float *output, 
         output[i * step_out] = input1[i * step1] + input2[i * step2];
     }
     return ESP_OK;
-}
-
-Mat::Rect::Rect(int x, int y, int width, int height)
-{
-    this->x = x;
-    this->y = y;
-    this->width = width;
-    this->height = height;
 }
 
 esp_err_t dspm_addc_f32(const float *input, float *output, float C, int rows, int cols, int padd_in, int padd_out, int step_in, int step_out)
@@ -363,6 +364,18 @@ esp_err_t dsps_addc_f32(const float *input, float *output, int len, float C, int
         output[i * step_out] = input[i * step_in] + C;
     }
     return ESP_OK;
+}
+
+namespace dspm {
+
+float Mat::abs_tol = 1e-10;
+
+Mat::Rect::Rect(int x, int y, int width, int height)
+{
+    this->x = x;
+    this->y = y;
+    this->width = width;
+    this->height = height;
 }
 
 void Mat::Rect::resizeRect(int x, int y, int width, int height)
