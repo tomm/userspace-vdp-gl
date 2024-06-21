@@ -27,6 +27,7 @@ using std::ostream;
 using std::istream;
 using std::endl;
 
+extern "C" {
 esp_err_t dspm_mult_f32_ansi(const float *A, const float *B, float *C, int m, int n, int k)
 {
     for (int i = 0 ; i < m ; i++) {
@@ -365,6 +366,7 @@ esp_err_t dsps_addc_f32(const float *input, float *output, int len, float C, int
     }
     return ESP_OK;
 }
+} /* extern "C" */
 
 namespace dspm {
 
