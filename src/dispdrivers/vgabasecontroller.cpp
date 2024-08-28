@@ -792,13 +792,16 @@ void VGABaseController::shrinkScreen(int shrinkX, int shrinkY)
 
 void IRAM_ATTR VGABaseController::swapBuffers()
 {
+#ifdef USERSPACE
+  auto lock = acquireLock();
+#endif /* USERSPACE */
   tswap(m_viewPort, m_viewPortVisible);
-#if 0
+#ifndef USERSPACE
   if (m_doubleBufferOverDMA) {
     tswap(m_DMABuffers, m_DMABuffersVisible);
     m_DMABuffersHead->qe.stqe_next = (lldesc_t*) &m_DMABuffersVisible[0];
   }
-#endif
+#endif /* !USERSPACE */
 }
 
 
