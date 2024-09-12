@@ -789,10 +789,10 @@ void VGABaseController::shrinkScreen(int shrinkX, int shrinkY)
   setResolution(*currTimings, m_viewPortWidth, m_viewPortHeight, isDoubleBuffered());
 }
 
-
 void IRAM_ATTR VGABaseController::swapBuffers()
 {
 #ifdef USERSPACE
+  waitVblank();
   auto lock = acquireLock();
 #endif /* USERSPACE */
   tswap(m_viewPort, m_viewPortVisible);

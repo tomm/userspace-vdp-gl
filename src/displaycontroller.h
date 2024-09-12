@@ -42,6 +42,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <atomic>
 
 #include <mat.h>
 #include <dspm_mult.h>
@@ -806,6 +807,12 @@ public:
    * @return Vertical size of the viewport.
    */
   int getViewPortHeight()                      { return m_viewPortHeight; }
+
+#ifdef USERSPACE
+  static std::atomic<bool> vblankSignal;
+
+  static void waitVblank();
+#endif /* USERSPACE */
 
 protected:
 

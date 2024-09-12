@@ -455,7 +455,18 @@ Bitmap::~Bitmap()
     heap_caps_free((void*)data);
 }
 
+#ifdef USERSPACE
+std::atomic<bool> BaseDisplayController::vblankSignal;
 
+void BaseDisplayController::waitVblank() {
+  bool expected = true;
+  // kindof icky, as this is a spin lock. could use atomic::wait on c++20+...
+  while (!vblankSignal.compare_exchange_weak(expected, false,
+        std::memory_order_release, std::memory_order_relaxed)) {
+    expected = true;
+  }
+}
+#endif /* USERSPACE */
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -613,12 +624,14 @@ void BitmappedDisplayController::waitForPrimitives()
 
 void BitmappedDisplayController::primitivesExecutionWait()
 {
-#if 0
+#if USERSPACE
+  waitVblank();
+#else /* !USERSPACE */
   if (m_backgroundPrimitiveExecutionEnabled) {
     while (uxQueueMessagesWaiting(m_execQueue) > 0)
       ;
   }
-#endif /* 0 */
+#endif
 }
 
 
