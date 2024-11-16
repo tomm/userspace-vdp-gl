@@ -1,4 +1,5 @@
 CXX ?= g++
+AR ?= ar
 LIBS = -g
 CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -DUSERSPACE -DWIFI_TASK_CORE_ID=0 -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform -I./userspace-platform/matrix
 OPTIONS = 
@@ -42,11 +43,11 @@ OBJS = $(SRCS:.cpp=$(SUFFIX).o)
 	$(CXX) $(CFLAGS) $(OPTIONS) -c $< -o $@
 
 vdp-gl$(SUFFIX).a: $(OBJS)
-	ar -rcs vdp-gl$(SUFFIX).a $(OBJS) 
+	$(AR) -rcs vdp-gl$(SUFFIX).a $(OBJS) 
 
 clean:
 	-rm $(OBJS)
-	-rm vdp-gl$(SUFFIX).a
+	-rm vdp-gl*.a
 
 depends: $(SRCS)
 	$(CXX) -MM $(CFLAGS) $(SRCS) > Makefile.dep
