@@ -56,8 +56,8 @@ size_t HardwareSerial::write(uint8_t c) {
 }
 void HardwareSerial::writeToInQueue(uint8_t c) {
 	std::unique_lock<std::mutex> lock(m_lock_in);
-	// hard buffer limit of 16
-	if (m_buf_in.size() < 16) {
+	// hard buffer limit of 2 x m_cts_threshold
+	if (m_buf_in.size() < 2*m_cts_threshold) {
 		m_buf_in.push_back(c);
 	}
 }

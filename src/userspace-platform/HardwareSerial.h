@@ -28,7 +28,9 @@ struct HardwareSerial: public Stream {
     void end() {}
     void setTimeout(int t) { timeout_ms = t; }
     void setRxBufferSize(int) {}
-    void setHwFlowCtrlMode(uint8_t mode, uint8_t threshold = 64) {}   // 64 is half FIFO Length
+    void setHwFlowCtrlMode(uint8_t mode, uint8_t threshold = 64) {
+        m_cts_threshold = threshold;
+    }
     void begin(int, int, int, int) {}
     void setPins(int, int, int, int) {}
     void print(const char *) {}
@@ -36,7 +38,7 @@ struct HardwareSerial: public Stream {
 
     void writeToInQueue(uint8_t b);
     bool readFromOutQueue(uint8_t *out);
-    
+    bool isReadyToReceive() { return available() < m_cts_threshold; }
 
 private:
     std::deque<uint8_t> m_buf_in;
@@ -44,4 +46,5 @@ private:
     std::mutex m_lock_in;
     std::mutex m_lock_out;
     int timeout_ms;
+    int m_cts_threshold;
 };
