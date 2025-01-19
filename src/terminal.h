@@ -909,7 +909,7 @@ struct Stream : public Print{
  *         char c = Terminal.read();
  *         switch (c) {
  *           case 0x7F:       // DEL -> backspace + ESC[K
- *             Terminal.write("\b\e[K");
+ *             Terminal.write("\\b\e[K");
  *             break;
  *           case 0x0D:       // CR  -> CR + LF
  *             Terminal.write("\r\n");
@@ -1786,6 +1786,9 @@ private:
   bool                      m_coloredAttributesMaintainStyle;
   int                       m_coloredAttributesMask;    // related bit 1 if enabled
   Color                     m_coloredAttributesColor[4];
+  
+  // true if inside ::end()
+  volatile bool             m_endingState;
 
 };
 

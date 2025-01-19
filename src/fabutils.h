@@ -40,6 +40,20 @@
 #include <cstdint>
 #include "fake_fabgl.h"
 
+#if 0
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+#include <driver/adc.h>
+#include <esp_system.h>
+#include "sdmmc_cmd.h"
+#include "soc/frc_timer_reg.h"
+
+#ifdef ARDUINO
+#include "Arduino.h"
+#endif
+#endif /* 0 */
+
 namespace fabgl {
 
 
@@ -198,6 +212,14 @@ struct APLLParams {
 void APLLCalcParams(double freq, APLLParams * params, uint8_t * a, uint8_t * b, double * out_freq, double * error);
 
 int calcI2STimingParams(int sampleRate, int * outA, int * outB, int * outN, int * outM);
+
+
+inline void taskExit()
+{
+  #ifndef FABGL_EMULATED
+  vTaskDelete(NULL);
+  #endif
+}
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -513,7 +535,6 @@ struct FontInfo {
   uint32_t const * chptr;  // used only for variable width fonts (FONTINFOFLAGS_VARWIDTH = 1)
   uint16_t codepage;
 };
-
 
 
 
@@ -1689,6 +1710,5 @@ inline bool isGUI(VirtualKey value)
 
 
 } // end of namespace
-
 
 

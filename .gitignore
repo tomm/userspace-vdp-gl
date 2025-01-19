@@ -1,3 +1,4 @@
 src/**/*.o
 src/vdp-gl.a
 /.vscode
+.DS_Store
