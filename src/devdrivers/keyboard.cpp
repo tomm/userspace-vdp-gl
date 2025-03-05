@@ -186,6 +186,7 @@ bool Keyboard::setLEDs(bool numLock, bool capsLock, bool scrollLock)
   m_numLockLED    = numLock;
   m_capsLockLED   = capsLock;
   m_scrollLockLED = scrollLock;
+  return true;
   //return send_cmdLEDs(numLock, capsLock, scrollLock);
 }
 
