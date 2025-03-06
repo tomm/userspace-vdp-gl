@@ -10,5 +10,6 @@ struct ESP32Time {
 	int getHour(bool);
 	int getMinute();
 	int getSecond();
+	int getMillis();
 	void setTime(int, int, int, int, int, int);
 };

@@ -832,7 +832,6 @@ struct EmuState {
 };
 
 
-#ifndef ARDUINO
 
 
 struct Print {
@@ -861,7 +860,6 @@ struct Print {
 struct Stream : public Print{
 };
 
-#endif  // ifdef ARDUINO
 
 
 

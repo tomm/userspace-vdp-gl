@@ -56,6 +56,8 @@
 namespace fabgl {
 
 
+uint8_t * * VGAPalettedController::s_viewPort;
+uint8_t * * VGAPalettedController::s_viewPortVisible;
 
 
 
@@ -63,26 +65,21 @@ namespace fabgl {
 /* VGAPalettedController definitions */
 
 
-uint8_t * * VGAPalettedController::s_viewPort;
-uint8_t * * VGAPalettedController::s_viewPortVisible;
-lldesc_t volatile *  VGAPalettedController::s_frameResetDesc;
-volatile int         VGAPalettedController::s_scanLine;
-
-
-
-
-VGAPalettedController::VGAPalettedController(int linesCount, int columnsQuantum, NativePixelFormat nativePixelFormat, int viewPortRatioDiv, int viewPortRatioMul, intr_handler_t isrHandler)
-  : m_linesCount(linesCount),
-    m_columnsQuantum(columnsQuantum),
+VGAPalettedController::VGAPalettedController(int linesCount, int columnsQuantum, NativePixelFormat nativePixelFormat, int viewPortRatioDiv, int viewPortRatioMul, intr_handler_t isrHandler, int signalTableSize)
+  : m_columnsQuantum(columnsQuantum),
     m_nativePixelFormat(nativePixelFormat),
     m_viewPortRatioDiv(viewPortRatioDiv),
     m_viewPortRatioMul(viewPortRatioMul),
     m_isrHandler(isrHandler),
-    m_primitiveExecTask(nullptr),
-    m_processPrimitivesOnBlank(false)
+    m_signalTableSize(signalTableSize)
 {
+  m_linesCount = linesCount;
   m_lines   = (uint8_t**) heap_caps_malloc(sizeof(uint8_t*) * m_linesCount, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
   m_palette = (RGB222*) heap_caps_malloc(sizeof(RGB222) * getPaletteSize(), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+  createPalette(0);
+  uint16_t signalList[2] = { 0, 0 };
+  m_signalList = createSignalList(signalList, 1);
+  m_currentSignalItem = m_signalList;
 }
 
 
@@ -90,6 +87,13 @@ VGAPalettedController::~VGAPalettedController()
 {
   heap_caps_free(m_palette);
   heap_caps_free(m_lines);
+  for (auto it = m_signalMaps.begin(); it != m_signalMaps.end();) {
+    if (it->second) {
+      heap_caps_free((void *)it->second);
+    }
+    it = m_signalMaps.erase(it);
+  }
+  deleteSignalList(m_signalList);
 }
 
 
@@ -98,19 +102,11 @@ void VGAPalettedController::init()
   VGABaseController::init();
 
   m_doubleBufferOverDMA      = false;
-  m_taskProcessingPrimitives = false;
-  m_processPrimitivesOnBlank = false;
-  m_primitiveExecTask        = nullptr;
 }
 
 
 void VGAPalettedController::end()
 {
-  if (m_primitiveExecTask) {
-    vTaskDelete(m_primitiveExecTask);
-    m_primitiveExecTask = nullptr;
-    m_taskProcessingPrimitives = false;
-  }
   VGABaseController::end();
 }
 
@@ -118,8 +114,6 @@ void VGAPalettedController::end()
 void VGAPalettedController::suspendBackgroundPrimitiveExecution()
 {
   VGABaseController::suspendBackgroundPrimitiveExecution();
-  while (m_taskProcessingPrimitives)
-    ;
 }
 
 // make sure view port height is divisible by m_linesCount, view port width is divisible by m_columnsQuantum
@@ -159,10 +153,14 @@ void VGAPalettedController::setResolution(VGATimings const& timings, int viewPor
 
   // fill view port
   for (int i = 0; i < m_viewPortHeight; ++i)
-    memset((void*)(m_viewPort[i]), 0, m_viewPortWidth / m_viewPortRatioDiv * m_viewPortRatioMul);
+    memset((void*)(m_viewPort[i]), nativePixelFormat() == NativePixelFormat::SBGR2222 ? m_HVSync : 0, m_viewPortWidth / m_viewPortRatioDiv * m_viewPortRatioMul);
 
+  deletePalette(65535);
   setupDefaultPalette();
   updateRGB2PaletteLUT();
+
+  uint16_t signalList[2] = { 0, 0 };
+  updateSignalList(signalList, 1);
 
   calculateAvailableCyclesForDrawings();
 
@@ -176,10 +174,6 @@ void VGAPalettedController::setResolution(VGATimings const& timings, int viewPor
     esp_intr_alloc_pinnedToCore(ETS_I2S1_INTR_SOURCE, ESP_INTR_FLAG_LEVEL1 | ESP_INTR_FLAG_IRAM, m_isrHandler, this, &m_isr_handle, FABGLIB_VIDEO_CPUINTENSIVE_TASKS_CORE);
     I2S1.int_clr.val     = 0xFFFFFFFF;
     I2S1.int_ena.out_eof = 1;
-  }
-
-  if (m_primitiveExecTask == nullptr) {
-    xTaskCreatePinnedToCore(primitiveExecTask, "" , FABGLIB_VGAPALETTEDCONTROLLER_PRIMTASK_STACK_SIZE, this, FABGLIB_VGAPALETTEDCONTROLLER_PRIMTASK_PRIORITY, &m_primitiveExecTask, CoreUsage::quietCore());
   }
 
   resumeBackgroundPrimitiveExecution();
@@ -220,6 +214,28 @@ int VGAPalettedController::getPaletteSize()
   }
 }
 
+void VGAPalettedController::setPaletteItem(int index, RGB888 const & color)
+{
+  setItemInPalette(0, index, color);
+}
+
+
+void VGAPalettedController::setItemInPalette(uint16_t paletteId, int index, RGB888 const & color)
+{
+  if (m_signalMaps.find(paletteId) == m_signalMaps.end()) {
+    if (!createPalette(paletteId)) {
+      return;
+    }
+  }
+  index %= getPaletteSize();
+  if (paletteId == 0) {
+    m_palette[index] = color;
+  }
+  auto packed222 = RGB888toPackedRGB222(color);
+  packSignals(index, packed222, m_signalMaps[paletteId]);
+}
+
+
 
 // rebuild m_packedRGB222_to_PaletteIndex
 void VGAPalettedController::updateRGB2PaletteLUT()
@@ -251,51 +267,138 @@ void VGAPalettedController::updateRGB2PaletteLUT()
 }
 
 
-// calculates number of CPU cycles usable to draw primitives
-void VGAPalettedController::calculateAvailableCyclesForDrawings()
+bool VGAPalettedController::createPalette(uint16_t paletteId)
 {
-  int availtime_us;
-
-  if (m_processPrimitivesOnBlank) {
-    // allowed time to process primitives is limited to the vertical blank. Slow, but avoid flickering
-    availtime_us = ceil(1000000.0 / m_timings.frequency * m_timings.scanCount * m_HLineSize * (m_linesCount / 2 + m_timings.VFrontPorch + m_timings.VSyncPulse + m_timings.VBackPorch + m_viewPortRow));
-  } else {
-    // allowed time is the half of an entire frame. Fast, but may flick
-    availtime_us = ceil(1000000.0 / m_timings.frequency * m_timings.scanCount * m_HLineSize * (m_timings.VVisibleArea + m_timings.VFrontPorch + m_timings.VSyncPulse + m_timings.VBackPorch));
-    availtime_us /= 2;
+  if (m_signalTableSize == 0) {
+    return false;
   }
-
-  m_primitiveExecTimeoutCycles = getCPUFrequencyMHz() * availtime_us;  // at 240Mhz, there are 240 cycles every microsecond
+  if (m_signalMaps.find(paletteId) == m_signalMaps.end()) {
+    m_signalMaps[paletteId] = heap_caps_malloc(m_signalTableSize, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    if (!m_signalMaps[paletteId]) {
+      m_signalMaps.erase(paletteId);
+      // create failed
+      return false;
+    }
+    if (paletteId == 0) {
+      return true;
+    }
+  }
+  // Duplicate palette 0 into new palette
+  if (paletteId != 0) {
+    memcpy(m_signalMaps[paletteId], m_signalMaps[0], m_signalTableSize);
+  }
+  return true;
 }
 
 
-// we can use getCycleCount here because primitiveExecTask is pinned to a specific core (so cycle counter is the same)
-// getCycleCount() requires 0.07us, while esp_timer_get_time() requires 0.78us
-void VGAPalettedController::primitiveExecTask(void * arg)
+void VGAPalettedController::deletePalette(uint16_t paletteId)
 {
-  auto ctrl = (VGAPalettedController *) arg;
+  if (paletteId == 0) {
+    return;
+  }
+  if (paletteId == 65535) {
+    // iterate over all palettes and delete them using deletePalette
+    for (auto it = m_signalMaps.begin(); it != m_signalMaps.end(); ++it) {
+      deletePalette(it->first);
+    }
+    return;
+  }
+  if (m_signalMaps.find(paletteId) != m_signalMaps.end()) {
+    auto signals = m_signalMaps[paletteId];
+    auto signalItem = m_signalList;
+    while (signalItem) {
+      if (signalItem->signals == signals) {
+        signalItem->signals = m_signalMaps[0];
+      }
+      signalItem = signalItem->next;
+    }
+    heap_caps_free(m_signalMaps[paletteId]);
+    m_signalMaps.erase(paletteId);
+  }
+}
 
-  while (true) {
-    if (!ctrl->m_primitiveProcessingSuspended) {
-      auto startCycle = ctrl->backgroundPrimitiveTimeoutEnabled() ? getCycleCount() : 0;
-      Rect updateRect = Rect(SHRT_MAX, SHRT_MAX, SHRT_MIN, SHRT_MIN);
-      ctrl->m_taskProcessingPrimitives = true;
-      do {
-        Primitive prim;
-        if (ctrl->getPrimitive(&prim, 0) == false)
-          break;
-        ctrl->execPrimitive(prim, updateRect, false);
-        if (ctrl->m_primitiveProcessingSuspended)
-          break;
-      } while (!ctrl->backgroundPrimitiveTimeoutEnabled() || (startCycle + ctrl->m_primitiveExecTimeoutCycles > getCycleCount()));
-      ctrl->showSprites(updateRect);
-      ctrl->m_taskProcessingPrimitives = false;
+
+void VGAPalettedController::deleteSignalList(PaletteListItem * item)
+{
+  if (item) {
+    deleteSignalList(item->next);
+    heap_caps_free(item);
+  }
+}
+
+
+void VGAPalettedController::updateSignalList(uint16_t * rawList, int entries)
+{
+  // Walk list, updating existing signal list
+  // creating new list if we exceed the current list,
+  // deleting any remaining items if we have fewer entries
+  PaletteListItem * item = m_signalList;
+  int row = 0;
+
+  while (entries) {
+    auto rows = rawList[0];
+    auto paletteID = rawList[1];
+    rawList += 2;
+
+    row += rows;
+    item->endRow = row;
+    if (m_signalMaps.find(paletteID) != m_signalMaps.end()) {
+      item->signals = m_signalMaps[paletteID];
+    } else {
+      item->signals = m_signalMaps[0];
     }
 
-    // wait for vertical sync
-    // XXX ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    entries--;
+
+    if (entries) {
+      if (item->next) {
+        item = item->next;
+      } else {
+        item->next = createSignalList(rawList, entries, row);
+        return;
+      }
+    }
   }
 
+  if (item->next) {
+    deleteSignalList(item->next);
+    item->next = NULL;
+  }
+}
+
+
+PaletteListItem * VGAPalettedController::createSignalList(uint16_t * rawList, int entries, int row)
+{
+  PaletteListItem * item = (PaletteListItem *) heap_caps_malloc(sizeof(PaletteListItem), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+  auto rows = rawList[0];
+  auto paletteID = rawList[1];
+
+  item->endRow = row + rows;
+
+  if (m_signalMaps.find(paletteID) != m_signalMaps.end()) {
+    item->signals = m_signalMaps[paletteID];
+  } else {
+    item->signals = m_signalMaps[0];
+  }
+
+  if (entries > 1) {
+    item->next = createSignalList(rawList + 2, entries - 1, row + rows);
+  } else {
+    item->next = NULL;
+  }
+
+  return item;
+}
+
+
+void * IRAM_ATTR VGAPalettedController::getSignalsForScanline(int scanLine) {
+  if (scanLine < m_currentSignalItem->endRow) {
+    return m_currentSignalItem->signals;
+  }
+  while (m_currentSignalItem->next && (scanLine >= m_currentSignalItem->endRow)) {
+    m_currentSignalItem = m_currentSignalItem->next;
+  }
+  return m_currentSignalItem->signals;
 }
 
 

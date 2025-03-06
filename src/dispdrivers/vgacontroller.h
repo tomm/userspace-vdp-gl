@@ -291,7 +291,6 @@ private:
   static void VSyncInterrupt(void * arg);
 
 
-
   static VGAController * s_instance;
 
   volatile int16_t       m_maxVSyncISRTime; // Maximum us VSync interrupt routine can run

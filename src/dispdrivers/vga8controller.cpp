@@ -127,16 +127,15 @@ VGA8Controller * VGA8Controller::s_instance = nullptr;
 
 
 VGA8Controller::VGA8Controller()
-  : VGAPalettedController(VGA8_LinesCount, VGA8_COLUMNSQUANTUM, NativePixelFormat::PALETTE8, 8, 3, ISRHandler)
+  : VGAPalettedController(VGA8_LinesCount, VGA8_COLUMNSQUANTUM, NativePixelFormat::PALETTE8, 8, 3, ISRHandler, 256 * sizeof(uint16_t))
 {
   s_instance = this;
-  m_packedPaletteIndexPair_to_signals = (uint16_t *) heap_caps_malloc(256 * sizeof(uint16_t), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 }
 
 
 VGA8Controller::~VGA8Controller()
 {
-  heap_caps_free((void *)m_packedPaletteIndexPair_to_signals);
+  s_instance = nullptr;
 }
 
 
@@ -153,16 +152,14 @@ void VGA8Controller::setupDefaultPalette()
 }
 
 
-void VGA8Controller::setPaletteItem(int index, RGB888 const & color)
+void VGA8Controller::packSignals(int index, uint8_t packed222, void * signals)
 {
-  index %= 8;
-  m_palette[index] = color;
-  auto packed222 = RGB888toPackedRGB222(color);
+  auto _signals = (uint16_t *) signals;
   for (int i = 0; i < 8; ++i) {
-    m_packedPaletteIndexPair_to_signals[(index << 3) | i] &= 0xFF00;
-    m_packedPaletteIndexPair_to_signals[(index << 3) | i] |= (m_HVSync | packed222);
-    m_packedPaletteIndexPair_to_signals[(i << 3) | index] &= 0x00FF;
-    m_packedPaletteIndexPair_to_signals[(i << 3) | index] |= (m_HVSync | packed222) << 8;
+    _signals[(index << 3) | i] &= 0xFF00;
+    _signals[(index << 3) | i] |= (m_HVSync | packed222);
+    _signals[(i << 3) | index] &= 0x00FF;
+    _signals[(i << 3) | index] |= (m_HVSync | packed222) << 8;
   }
 }
 
@@ -691,22 +688,26 @@ void IRAM_ATTR VGA8Controller::ISRHandler(void * arg)
 
     auto const desc = (lldesc_t*) I2S1.out_eof_des_addr;
 
-    if (desc == s_frameResetDesc)
+    if (desc == s_frameResetDesc) {
       s_scanLine = 0;
+    }
 
     auto const width  = ctrl->m_viewPortWidth;
     auto const height = ctrl->m_viewPortHeight;
-    auto const packedPaletteIndexPair_to_signals = (uint16_t const *) ctrl->m_packedPaletteIndexPair_to_signals;
-    auto const lines  = ctrl->m_lines;
-
     int scanLine = (s_scanLine + VGA8_LinesCount / 2) % height;
+    if (scanLine == 0) {
+      ctrl->m_currentSignalItem = ctrl->m_signalList;
+    }
 
+    auto const lines  = ctrl->m_lines;
     auto lineIndex = scanLine & (VGA8_LinesCount - 1);
 
     for (int i = 0; i < VGA8_LinesCount / 2; ++i) {
 
       auto src  = (uint8_t const *) s_viewPortVisible[scanLine];
       auto dest = (uint16_t*) lines[lineIndex];
+      uint8_t* decpix = (uint8_t*) dest;
+      auto const packedPaletteIndexPair_to_signals = (uint16_t *) ctrl->getSignalsForScanline(scanLine);
 
       // optimization warn: horizontal resolution must be a multiple of 16!
       for (int col = 0; col < width; col += 16) {
@@ -743,16 +744,20 @@ void IRAM_ATTR VGA8Controller::ISRHandler(void * arg)
 
       }
 
+      ctrl->decorateScanLinePixels(decpix, scanLine);
       ++lineIndex;
       ++scanLine;
     }
 
     s_scanLine += VGA8_LinesCount / 2;
 
-    if (scanLine >= height && !ctrl->m_primitiveProcessingSuspended && spi_flash_cache_enabled() && ctrl->m_primitiveExecTask) {
-      // vertical sync, unlock primitive execution task
-      // warn: don't use vTaskSuspendAll() in primitive drawing, otherwise vTaskNotifyGiveFromISR may be blocked and screen will flick!
-      vTaskNotifyGiveFromISR(ctrl->m_primitiveExecTask, NULL);
+    if (scanLine >= height) {
+      ctrl->frameCounter++;
+      if (!ctrl->m_primitiveProcessingSuspended && spi_flash_cache_enabled() && ctrl->m_primitiveExecTask) {
+        // vertical sync, unlock primitive execution task
+        // warn: don't use vTaskSuspendAll() in primitive drawing, otherwise vTaskNotifyGiveFromISR may be blocked and screen will flick!
+        vTaskNotifyGiveFromISR(ctrl->m_primitiveExecTask, NULL);
+      }
     }
 
   }

@@ -319,6 +319,7 @@
 #include "dispdrivers/vga8controller.h"
 #include "dispdrivers/vga16controller.h"
 #include "dispdrivers/vgadirectcontroller.h"
+#include "dispdrivers/vga64controller.h"
 #include "comdrivers/ps2controller.h"
 #include "devdrivers/keyboard.h"
 #include "devdrivers/mouse.h"

@@ -647,6 +647,8 @@ struct Sprite {
     uint8_t isStatic:  1;
     // This is always '1' for dynamic sprites and always '0' for static sprites.
     uint8_t allowDraw: 1;
+    // This tells the system to draw it as a hardware sprite (on-the-fly).
+    uint8_t hardware:  1;
   };
 
   Sprite();
@@ -824,6 +826,9 @@ protected:
   int16_t          m_screenHeight;
   volatile int16_t m_viewPortWidth;
   volatile int16_t m_viewPortHeight;
+
+  // contains H and V signals for visible line
+  volatile uint8_t m_HVSync;
 };
 
 
@@ -1101,11 +1106,13 @@ protected:
 
   Sprite * getSprite(int index);
 
-  int spritesCount() { return m_spritesCount; }
+  inline int spritesCount() { return m_spritesCount; }
 
   void hideSprites(Rect & updateRect);
 
   void showSprites(Rect & updateRect);
+
+  void drawSpriteScanLine(uint8_t * pixelData, int scanRow, int scanWidth, int viewportHeight);
 
   void drawBitmap(BitmapDrawingInfo const & bitmapDrawingInfo, Rect & updateRect);
 
@@ -1142,9 +1149,9 @@ private:
   bool                   m_backgroundPrimitiveExecutionEnabled; // when False primitives are execute immediately
   volatile bool          m_backgroundPrimitiveTimeoutEnabled;   // when False VSyncInterrupt() has not timeout
 
-  void *                 m_sprites;       // pointer to array of sprite structures
-  int                    m_spriteSize;    // size of sprite structure
-  int                    m_spritesCount;  // number of sprites in m_sprites array
+  volatile void *        m_sprites;       // pointer to array of sprite structures
+  volatile int           m_spriteSize;    // size of sprite structure
+  volatile int           m_spritesCount;  // number of sprites in m_sprites array
   bool                   m_spritesHidden; // true between hideSprites() and showSprites()
 
   // mouse cursor (mouse pointer) support

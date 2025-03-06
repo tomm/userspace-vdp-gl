@@ -54,6 +54,7 @@
 #endif
 #endif /* 0 */
 
+
 namespace fabgl {
 
 
@@ -1709,6 +1710,16 @@ inline bool isGUI(VirtualKey value)
 #define ASCII_DEL   0x7F   // Delete
 
 
-} // end of namespace
 
+///////////////////////////////////////////////////////////////////////////////////
+// Scan-out palette control
+
+struct PaletteListItem {
+  uint16_t          endRow;
+  void *            signals;
+  PaletteListItem * next;
+};
+
+
+} // end of namespace
 

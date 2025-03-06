@@ -1,12 +1,4 @@
 /*
-  Created by Fabrizio Di Vittorio (fdivitto2013@gmail.com) - <http://www.fabgl.com>
-  Copyright (c) 2019-2022 Fabrizio Di Vittorio.
-  All rights reserved.
-
-
-* Please contact fdivitto2013@gmail.com if you need a commercial license.
-
-
 * This library and related software is available under GPL v3.
 
   FabGL is free software: you can redistribute it and/or modify
@@ -31,7 +23,7 @@
 /**
  * @file
  *
- * @brief This file contains fabgl::VGA4Controller definition.
+ * @brief This file contains fabgl::VGA64Controller definition.
  */
 
 
@@ -53,7 +45,7 @@
 
 
 
-#define VGA4_LinesCount 4
+#define VGA64_LinesCount 4
 
 
 
@@ -63,48 +55,61 @@ namespace fabgl {
 
 
 /**
-* @brief Represents the VGA 4 colors bitmapped controller
+* @brief Represents the VGA 64 colors bitmapped controller
 *
-* This VGA controller allows just 4 colors, but requires less (1/4) RAM than VGAController, at the same resolution. Each pixel is represented
-* by 2 bits, which is an index to a palette of 4 colors. Each byte of the frame buffer contains four pixels.
-* For example, a frame buffer of 640x480 requires about 75K of RAM.
+* This controller works in the same way as other VGA controllers based on VGAPalettedController, but works with a framebuffer that is the
+* same as with VGAController, and does not actually support a palette.  This controller however supports "hardware sprites".
 *
-* VGA4Controller output consumes up to 11% of one CPU core (measured at 640x480x60Hz). Anyway this allows to have more RAM free for your application.
+* In contrast to other palette-based controllers, the performance impact of this controller has not been properly measured.
+* Benchmark testing seems to indicate performance essentially on-par with VGAController.
 *
-* This example initializes VGA Controller with 64 colors (16 visible at the same time) at 640x480:
 *
-*     fabgl::VGA4Controller displayController;
+* This example initializes VGA Controller with 64 colors (all visible at the same time) at 640x350:
+*
+*     fabgl::VGA64Controller displayController;
 *     // the default assigns GPIO22 and GPIO21 to Red, GPIO19 and GPIO18 to Green, GPIO5 and GPIO4 to Blue, GPIO23 to HSync and GPIO15 to VSync
 *     displayController.begin();
-*     displayController.setResolution(VGA_640x480_60Hz);
+*     displayController.setResolution(VGA_640x350_70Hz);
 */
-class VGA4Controller : public VGAPalettedController {
+class VGA64Controller : public VGAPalettedController {
 
 public:
 
-  VGA4Controller();
-  ~VGA4Controller();
+  VGA64Controller();
 
   // unwanted methods
-  VGA4Controller(VGA4Controller const&) = delete;
-  void operator=(VGA4Controller const&) = delete;
+  VGA64Controller(VGA64Controller const&) = delete;
+  void operator=(VGA64Controller const&)  = delete;
 
 
   /**
-   * @brief Returns the singleton instance of VGA4Controller class
+   * @brief Returns the singleton instance of VGA64Controller class
    *
-   * @return A pointer to VGA4Controller singleton object
+   * @return A pointer to VGA64Controller singleton object
    */
-  static VGA4Controller * instance() { return s_instance; }
+  static VGA64Controller * instance() { return s_instance; }
 
   void readScreen(Rect const & rect, RGB888 * destBuf);
+
+  /**
+   * @brief Determines color of specified palette item
+   *
+   * @param index Palette item (0..15)
+   * @param color Color to assign to this item
+   *
+   * Example:
+   *
+   *     // Color item 0 is pure Red
+   *     displayController.setPaletteItem(0, RGB888(255, 0, 0));
+   */
+  void setPaletteItem(int index, RGB888 const & color);
 
 
 protected:
 
   void setupDefaultPalette();
 
-  void packSignals(int index, uint8_t packed222, void * signals);
+  void packSignals(int index, uint8_t packed222, void * signals) {};
 
 
 private:
@@ -201,8 +206,9 @@ private:
   static void ISRHandler(void * arg);
 
 
+  static VGA64Controller *    s_instance;
 
-  static VGA4Controller *     s_instance;
+  volatile uint16_t           m_packedPaletteIndexPair_to_signals[1];
 
 };
 

@@ -17,4 +17,5 @@ int ESP32Time::getDayofYear() { return now()->tm_yday; }
 int ESP32Time::getHour(bool) { return now()->tm_hour; }
 int ESP32Time::getMinute() { return now()->tm_min; }
 int ESP32Time::getSecond() { return now()->tm_sec; }
+int ESP32Time::getMillis() { return 0; }
 void ESP32Time::setTime(int, int, int, int, int, int) {}

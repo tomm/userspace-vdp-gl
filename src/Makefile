@@ -18,6 +18,7 @@ SRCS = \
        dispdrivers/vga2controller.cpp \
        dispdrivers/vga4controller.cpp \
        dispdrivers/vga8controller.cpp \
+       dispdrivers/vga64controller.cpp \
        dispdrivers/vgabasecontroller.cpp \
        dispdrivers/vgacontroller.cpp \
        dispdrivers/vgapalettedcontroller.cpp \
