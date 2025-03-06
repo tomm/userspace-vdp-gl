@@ -1,7 +1,7 @@
 CXX ?= g++
 AR ?= ar
 LIBS = -g
-CFLAGS = $(EXTRA_FLAGS) -Wall -O2 -fPIC -DUSERSPACE -DWIFI_TASK_CORE_ID=0 -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform -I./userspace-platform/matrix
+CFLAGS = $(EXTRA_FLAGS) -Wall -Werror=return-type -O2 -fPIC -DUSERSPACE -DWIFI_TASK_CORE_ID=0 -g -std=c++11 -I. -I./dispdrivers -I./comdrivers -I./userspace-platform -I./userspace-platform/matrix
 OPTIONS = 
 
 SRCS = \

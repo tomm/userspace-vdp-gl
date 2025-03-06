@@ -1302,9 +1302,11 @@ void PS2Controller::enableRX(int PS2Port)
 
 bool PS2Controller::dataAvailable(int PS2Port)
 {
-#ifndef USERSPACE
+#ifdef USERSPACE
+  return false;
+#else
   return uxQueueMessagesWaiting(s_dataIn[PS2Port]);
-#endif /* !USERSPACE */
+#endif /* USERSPACE */
 }
 
 
@@ -1353,9 +1355,13 @@ void PS2Controller::sendData(uint8_t data, int PS2Port)
 
 bool PS2Controller::lock(int PS2Port, int timeOutMS)
 {
-#ifndef USERSPACE
+#ifdef USERSPACE
+  // pretty sure it's unused, but just to be sure
+  abort();
+  return false;
+#else
   return s_portEnabled[PS2Port] ? xSemaphoreTakeRecursive(s_portLock[PS2Port], msToTicks(timeOutMS)) : true;
-#endif /* !USERSPACE */
+#endif /* USERSPACE */
 }
 
 
