@@ -299,7 +299,7 @@ public:
   static std::unique_lock<std::mutex> acquireLock() {
     return std::unique_lock<std::mutex>(m_bigLock);
   }
-  uint     frameCounter = 0;
+  uint32_t     frameCounter = 0;
 
 protected:
 
