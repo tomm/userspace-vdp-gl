@@ -478,6 +478,7 @@ BitmappedDisplayController::BitmappedDisplayController()
   m_doubleBuffered                      = false;
   m_mouseCursor.visible                 = false;
   m_mouseCursor.hardware                = true;
+  m_textCursor                          = nullptr;  
   m_backgroundPrimitiveTimeoutEnabled   = true;
   m_spritesHidden                       = true;
 }

@@ -478,6 +478,12 @@ void IRAM_ATTR VGAPalettedController::rawDrawSpriteScanline(uint8_t * pixelData,
 }
 
 void IRAM_ATTR VGAPalettedController::drawSpriteScanLine(uint8_t * pixelData, int scanRow, int scanWidth, int viewportHeight) {
+  // text cursor
+  auto text = textCursor();
+  if (text && text->visible) {
+    rawDrawSpriteScanline(pixelData, text, scanRow, scanWidth, viewportHeight);
+  }
+
   // normal sprites
   for (int i = 0; i < spritesCount(); ++i) {
     Sprite * sprite = getSprite(i);
