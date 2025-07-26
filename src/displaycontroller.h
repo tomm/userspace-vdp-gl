@@ -1122,7 +1122,7 @@ protected:
 
   void waitForPrimitives();
 
-  Sprite * mouseCursor() { return &m_mouseCursor; }
+  inline Sprite * mouseCursor() { return &m_mouseCursor; }
 
   void resetPaintState();
 

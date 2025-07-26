@@ -205,6 +205,7 @@ private:
   PaletteListItem * createSignalList(uint16_t * rawList, int entries, int row = 0);
   void deleteSignalList(PaletteListItem * item);
 
+  void rawDrawSpriteScanline(uint8_t * pixelData, Sprite * sprite, int scanRow, int scanWidth, int viewportHeight);
   void drawSpriteScanLine(uint8_t * pixelData, int scanRow, int scanWidth, int viewportHeight);
 
   uint8_t                     m_packedRGB222_to_PaletteIndex[64];
