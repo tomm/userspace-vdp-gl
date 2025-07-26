@@ -451,13 +451,26 @@ void IRAM_ATTR VGAPalettedController::rawDrawSpriteScanline(uint8_t * pixelData,
     case PixelFormat::RGBA2222: {
         auto src = spriteFrame->data + (offsetY * spriteWidth) + offsetX;
         auto pos = spriteX + offsetX;
-        while (drawWidth--) {
-          if (*src & 0xC0) {
-            auto rgb = *src & 0x3F;
-            pixelData[pos^2] = rgb | m_HVSync;
+        if (sprite->paintOptions.mode == PaintMode::XOR) {
+          // XOR mode
+          while (drawWidth--) {
+            if (*src & 0xC0) {
+              auto rgb = *src & 0x3F;
+              pixelData[pos^2] ^= rgb;
+            }
+            src++;
+            pos++;
           }
-          src++;
-          pos++;
+        } else {
+          // normal mode
+          while (drawWidth--) {
+            if (*src & 0xC0) {
+              auto rgb = *src & 0x3F;
+              pixelData[pos^2] = rgb | m_HVSync;
+            }
+            src++;
+            pos++;
+          }
         }
       }
       break;
