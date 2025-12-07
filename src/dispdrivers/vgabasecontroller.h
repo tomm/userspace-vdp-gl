@@ -353,8 +353,8 @@ protected:
 
   // when double buffer is enabled the "drawing" view port is always m_viewPort, while the "visible" view port is always m_viewPortVisible
   // when double buffer is not enabled then m_viewPort = m_viewPortVisible
-  uint8_t * *   m_viewPort;
-  uint8_t * *   m_viewPortVisible;
+  volatile uint8_t * *   m_viewPort;
+  volatile uint8_t * *   m_viewPortVisible;
 
   // true: double buffering is implemented in DMA
   bool                   m_doubleBufferOverDMA;
@@ -369,7 +369,7 @@ protected:
   volatile int16_t       m_viewPortCol;
   volatile int16_t       m_viewPortRow;
 
-  volatile uint8_t * *        m_lines;
+  uint8_t * *        m_lines;
 
   // optimization: clones of m_viewPort and m_viewPortVisible
   static volatile uint8_t * * s_viewPort;

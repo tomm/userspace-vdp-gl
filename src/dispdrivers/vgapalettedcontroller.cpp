@@ -56,11 +56,6 @@
 namespace fabgl {
 
 
-uint8_t * * VGAPalettedController::s_viewPort;
-uint8_t * * VGAPalettedController::s_viewPortVisible;
-
-
-
 /*************************************************************************************/
 /* VGAPalettedController definitions */
 
