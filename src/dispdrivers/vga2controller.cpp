@@ -746,7 +746,6 @@ void IRAM_ATTR VGA2Controller::ISRHandler(void * arg)
       }
 
       ctrl->decorateScanLinePixels(decpix, scanLine);
-
       ++lineIndex;
       ++scanLine;
     }

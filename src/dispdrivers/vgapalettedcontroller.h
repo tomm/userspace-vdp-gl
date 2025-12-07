@@ -182,15 +182,7 @@ protected:
 
   void * getSignalsForScanline(int scanline);
 
-  uint8_t * *        m_lines;
-
-  // optimization: clones of m_viewPort and m_viewPortVisible
-  static uint8_t * * s_viewPort;
-  static uint8_t * * s_viewPortVisible;
-
-  static lldesc_t volatile *  s_frameResetDesc;
-
-  static volatile int         s_scanLine;
+  void decorateScanLinePixels(uint8_t * pixels, uint16_t scanRow);
 
   RGB222 *                    m_palette;
 
@@ -212,6 +204,8 @@ private:
 
   PaletteListItem * createSignalList(uint16_t * rawList, int entries, int row = 0);
   void deleteSignalList(PaletteListItem * item);
+
+  void drawSpriteScanLine(uint8_t * pixelData, int scanRow, int scanWidth, int viewportHeight);
 
   uint8_t                     m_packedRGB222_to_PaletteIndex[64];
 
