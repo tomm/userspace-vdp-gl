@@ -523,6 +523,7 @@ void VGA64Controller::copyRect(Rect const & source, Rect & updateRect)
 // no bounds check is done!
 void VGA64Controller::readScreen(Rect const & rect, RGB888 * destBuf)
 {
+  this->frameCounter++;
   auto frontbuffer = isDoubleBuffered() ? m_viewPortVisible : m_viewPort;
   for (int y = rect.Y1; y <= rect.Y2; ++y) {
     uint8_t * row = (uint8_t*) frontbuffer[y];
