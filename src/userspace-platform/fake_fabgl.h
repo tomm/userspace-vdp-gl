@@ -55,7 +55,7 @@ int heap_caps_get_free_size(int);
 #define disableCore0WDT()
 #define disableCore1WDT()
 inline bool psramInit() { return true; }
-inline void *ps_malloc(size_t sz) { return heap_caps_malloc(sz, MALLOC_CAP_8BIT); }
+inline void *ps_malloc(size_t sz) { return sz < 4096*1024 ? heap_caps_malloc(sz, MALLOC_CAP_8BIT) : NULL; }
 
 extern int64_t esp_timer_get_time();
 
