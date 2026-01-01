@@ -477,6 +477,8 @@ BitmappedDisplayController::BitmappedDisplayController()
   m_spritesCount                        = 0;
   m_doubleBuffered                      = false;
   m_mouseCursor.visible                 = false;
+  m_mouseCursor.hardware                = true;
+  m_textCursor                          = nullptr;  
   m_backgroundPrimitiveTimeoutEnabled   = true;
   m_spritesHidden                       = true;
 }
@@ -714,19 +716,6 @@ void IRAM_ATTR BitmappedDisplayController::hideSprites(Rect & updateRect)
         }
       }
     }
-
-    // mouse cursor sprite
-    Sprite * mouseSprite = mouseCursor();
-    if (mouseSprite->savedBackgroundWidth > 0) {
-      int savedX = mouseSprite->savedX;
-      int savedY = mouseSprite->savedY;
-      int savedWidth  = mouseSprite->savedBackgroundWidth;
-      int savedHeight = mouseSprite->savedBackgroundHeight;
-      Bitmap bitmap(savedWidth, savedHeight, mouseSprite->savedBackground, PixelFormat::Native);
-      absDrawBitmap(savedX, savedY, &bitmap, nullptr, true);
-      updateRect = updateRect.merge(Rect(savedX, savedY, savedX + savedWidth - 1, savedY + savedHeight - 1));
-      mouseSprite->savedBackgroundWidth = mouseSprite->savedBackgroundHeight = 0;
-    }
   }
 }
 
@@ -761,25 +750,6 @@ void IRAM_ATTR BitmappedDisplayController::showSprites(Rect & updateRect)
       }
     }
 
-    // mouse cursor sprite
-    // save backgrounds and draw mouse cursor
-    Sprite * mouseSprite = mouseCursor();
-    if (mouseSprite->visible && mouseSprite->getFrame()) {
-      // save sprite X and Y so other threads can change them without interferring
-      int spriteX = mouseSprite->x;
-      int spriteY = mouseSprite->y;
-      Bitmap const * bitmap = mouseSprite->getFrame();
-      int bitmapWidth  = bitmap->width;
-      int bitmapHeight = bitmap->height;
-      paintState().paintOptions = PaintOptions();
-      absDrawBitmap(spriteX, spriteY, bitmap, mouseSprite->savedBackground, true);
-      mouseSprite->savedX = spriteX;
-      mouseSprite->savedY = spriteY;
-      mouseSprite->savedBackgroundWidth  = bitmapWidth;
-      mouseSprite->savedBackgroundHeight = bitmapHeight;
-      updateRect = updateRect.merge(Rect(spriteX, spriteY, spriteX + bitmapWidth - 1, spriteY + bitmapHeight - 1));
-    }
-
     paintState().paintOptions = options;
   }
 }
@@ -792,21 +762,14 @@ void BitmappedDisplayController::setMouseCursor(Cursor * cursor)
     m_mouseCursor.visible = false;
     m_mouseCursor.clearBitmaps();
 
-    refreshSprites();
-    processPrimitives();
-    primitivesExecutionWait();
-
     if (cursor) {
       m_mouseCursor.moveBy(+m_mouseHotspotX, +m_mouseHotspotY);
       m_mouseHotspotX = cursor->hotspotX;
       m_mouseHotspotY = cursor->hotspotY;
       m_mouseCursor.addBitmap(&cursor->bitmap);
-      m_mouseCursor.visible = true;
       m_mouseCursor.moveBy(-m_mouseHotspotX, -m_mouseHotspotY);
-      if (!isDoubleBuffered())
-        m_mouseCursor.savedBackground = (uint8_t*) realloc(m_mouseCursor.savedBackground, cursor->bitmap.width * getBitmapSavePixelSize() * cursor->bitmap.height);
+      m_mouseCursor.visible = true;
     }
-    refreshSprites();
   }
 }
 
@@ -820,7 +783,6 @@ void BitmappedDisplayController::setMouseCursor(CursorName cursorName)
 void BitmappedDisplayController::setMouseCursorPos(int X, int Y)
 {
   m_mouseCursor.moveTo(X - m_mouseHotspotX, Y - m_mouseHotspotY);
-  refreshSprites();
 }
 
 

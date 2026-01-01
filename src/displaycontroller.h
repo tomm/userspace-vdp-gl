@@ -999,6 +999,13 @@ public:
    */
   void setMouseCursorPos(int X, int Y);
 
+  /**
+   * @brief Set the text cursor sprite
+   * 
+   * @param sprite The sprite to use as text cursor. nullptr = disable text cursor.
+   */
+  void setTextCursor(Sprite * sprite) { m_textCursor = sprite; }
+
   virtual void readScreen(Rect const & rect, RGB888 * destBuf) = 0;
 
 
@@ -1122,7 +1129,9 @@ protected:
 
   void waitForPrimitives();
 
-  Sprite * mouseCursor() { return &m_mouseCursor; }
+  inline Sprite * mouseCursor() { return &m_mouseCursor; }
+
+  inline Sprite * textCursor() { return m_textCursor; }
 
   void resetPaintState();
 
@@ -1148,6 +1157,9 @@ private:
   Sprite                 m_mouseCursor;
   int16_t                m_mouseHotspotX;
   int16_t                m_mouseHotspotY;
+  
+  // Optional hardware text cursor sprite
+  Sprite *               m_textCursor;
 
   // memory pool used to allocate buffers of primitives
   LightMemoryPool        m_primDynMemPool;
