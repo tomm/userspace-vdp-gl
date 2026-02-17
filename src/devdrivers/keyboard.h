@@ -41,6 +41,7 @@
 #include "kbdlayouts.h"
 #include "codepages.h"
 #include <mutex>
+#include <deque>
 
 
 namespace fabgl {

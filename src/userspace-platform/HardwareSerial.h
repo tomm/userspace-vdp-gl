@@ -2,13 +2,21 @@
 
 #include <cstring>
 #include <stdint.h>
-#include <deque>
-#include <mutex>
+#include "SPSCQueue.h"
+#include <algorithm>
 #include "Stream.h"
 
 struct HardwareSerial: public Stream {
-    HardwareSerial(): timeout_ms(0) {}
-    HardwareSerial(int): timeout_ms(0) {}
+    HardwareSerial():
+        timeout_ms(0),
+        m_buf_in(512),
+        m_buf_out(512)
+    {}
+    HardwareSerial(int):
+        timeout_ms(0),
+        m_buf_in(512),
+        m_buf_out(512)
+    {}
 
     int available() override;
     int read() override;
@@ -29,7 +37,7 @@ struct HardwareSerial: public Stream {
     void setTimeout(int t) { timeout_ms = t; }
     void setRxBufferSize(int) {}
     void setHwFlowCtrlMode(uint8_t mode, uint8_t threshold = 64) {
-        m_cts_threshold = threshold;
+        m_cts_threshold = std::min((int)threshold, 128);
     }
     void begin(int, int, int, int) {}
     void setPins(int, int, int, int) {}
@@ -41,10 +49,8 @@ struct HardwareSerial: public Stream {
     bool isReadyToReceive() { return available() < m_cts_threshold; }
 
 private:
-    std::deque<uint8_t> m_buf_in;
-    std::deque<uint8_t> m_buf_out;
-    std::mutex m_lock_in;
-    std::mutex m_lock_out;
+    rigtorp::SPSCQueue<uint8_t> m_buf_in;
+    rigtorp::SPSCQueue<uint8_t> m_buf_out;
     int timeout_ms;
     int m_cts_threshold;
 };

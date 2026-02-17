@@ -45,6 +45,7 @@
 
 #ifdef USERSPACE
 #include <deque>
+#include <mutex>
 #endif /* USERSPACE */
 
 
