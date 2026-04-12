@@ -476,11 +476,13 @@ BitmappedDisplayController::BitmappedDisplayController()
   m_sprites                             = nullptr;
   m_spritesCount                        = 0;
   m_doubleBuffered                      = false;
-  m_mouseCursor.visible                 = false;
-  m_mouseCursor.hardware                = true;
   m_textCursor                          = nullptr;  
   m_backgroundPrimitiveTimeoutEnabled   = true;
   m_spritesHidden                       = true;
+  // Create a mouse cursor sprite - must be in internal memory for hardware cursor support
+  m_mouseCursor = new Sprite();
+  m_mouseCursor->visible                 = false;
+  m_mouseCursor->hardware                = true;
 }
 
 
@@ -758,17 +760,17 @@ void IRAM_ATTR BitmappedDisplayController::showSprites(Rect & updateRect)
 // cursor = nullptr -> disable mouse
 void BitmappedDisplayController::setMouseCursor(Cursor * cursor)
 {
-  if (cursor == nullptr || &cursor->bitmap != m_mouseCursor.getFrame()) {
-    m_mouseCursor.visible = false;
-    m_mouseCursor.clearBitmaps();
+  if (cursor == nullptr || &cursor->bitmap != m_mouseCursor->getFrame()) {
+    m_mouseCursor->visible = false;
+    m_mouseCursor->clearBitmaps();
 
     if (cursor) {
-      m_mouseCursor.moveBy(+m_mouseHotspotX, +m_mouseHotspotY);
+      m_mouseCursor->moveBy(+m_mouseHotspotX, +m_mouseHotspotY);
       m_mouseHotspotX = cursor->hotspotX;
       m_mouseHotspotY = cursor->hotspotY;
-      m_mouseCursor.addBitmap(&cursor->bitmap);
-      m_mouseCursor.moveBy(-m_mouseHotspotX, -m_mouseHotspotY);
-      m_mouseCursor.visible = true;
+      m_mouseCursor->addBitmap(&cursor->bitmap);
+      m_mouseCursor->moveBy(-m_mouseHotspotX, -m_mouseHotspotY);
+      m_mouseCursor->visible = true;
     }
   }
 }
@@ -782,7 +784,7 @@ void BitmappedDisplayController::setMouseCursor(CursorName cursorName)
 
 void BitmappedDisplayController::setMouseCursorPos(int X, int Y)
 {
-  m_mouseCursor.moveTo(X - m_mouseHotspotX, Y - m_mouseHotspotY);
+  m_mouseCursor->moveTo(X - m_mouseHotspotX, Y - m_mouseHotspotY);
 }
 
 
