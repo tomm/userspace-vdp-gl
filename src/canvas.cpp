@@ -654,6 +654,32 @@ void Canvas::fillPath(Point const * points, int pointsCount)
 }
 
 
+void Canvas::fillRow(RGB888 matchColor, bool scanLeft, bool scanToMatch)
+{
+  Primitive p;
+  p.cmd = PrimitiveCmd::FillRow;
+  p.fillRowParams.matchColor = matchColor;
+  p.fillRowParams.flags = (scanLeft ? 0x01 : 0x00) | (scanToMatch ? 0x02 : 0x00);
+  m_displayController->addPrimitive(p);
+}
+
+
+void Canvas::floodFill(RGB888 matchColor, bool scanToMatch)
+{
+  Primitive p;
+  p.cmd = PrimitiveCmd::FloodFill;
+  p.fillRowParams.matchColor = matchColor;
+  p.fillRowParams.flags = scanToMatch ? 0x02 : 0x00;
+  m_displayController->addPrimitive(p);
+}
+
+
+Point Canvas::getPosition()
+{
+  return m_displayController->paintState().position;
+}
+
+
 RGB888 Canvas::getPixel(int X, int Y)
 {
   RGB888 rgb;

@@ -854,6 +854,44 @@ public:
   void fillPath(Point const * points, int pointsCount);
 
   /**
+   * @brief Scans and fills a horizontal row from the current position.
+   *
+   * Scans left and/or right from the current position, comparing pixels against matchColor.
+   * Fills the discovered span using the current pen color and paint options.
+   * Updates the current position to the right edge of the filled span.
+   *
+   * @param matchColor The boundary detection color to scan against.
+   * @param scanLeft If true, scans both left and right. If false, scans right only.
+   * @param scanToMatch If true, fills while pixel does NOT match matchColor (scan-until-matching).
+   *                    If false, fills while pixel DOES match matchColor (scan-while-matching).
+   */
+  void fillRow(RGB888 matchColor, bool scanLeft, bool scanToMatch);
+
+  /**
+   * @brief Flood fills a region starting from the current position.
+   *
+   * Uses a span-filling algorithm: fills the row containing the current position, then
+   * seeds adjacent rows and repeats. Fills using the current pen color and paint options.
+   * Bounded by the current clipping rectangle.
+   *
+   * @param matchColor The boundary detection color to scan against.
+   * @param scanToMatch If true, fills while pixels do NOT match matchColor (flood until matchColor).
+   *                    If false, fills while pixels DO match matchColor (flood while matchColor).
+   */
+  void floodFill(RGB888 matchColor, bool scanToMatch);
+
+  /**
+   * @brief Returns the current drawing position.
+   *
+   * This reads the position from the paint state, which may be updated by drawing operations
+   * such as lineTo() or fillRow(). Call after waitCompletion() to ensure the position reflects
+   * the result of queued primitives.
+   *
+   * @return Current drawing position as a Point.
+   */
+  Point getPosition();
+
+  /**
    * @brief Reads the pixel at specified position.
    *
    * Screen reading may occur while other drawings are in progress, so the result may be not updated. To avoid it, call getPixel() after
