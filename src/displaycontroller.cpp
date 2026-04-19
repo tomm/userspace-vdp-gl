@@ -507,6 +507,7 @@ void IRAM_ATTR BitmappedDisplayController::resetPaintState()
   m_paintState.penColor              = RGB888(255, 255, 255);
   m_paintState.brushColor            = RGB888(0, 0, 0);
   m_paintState.position              = Point(0, 0);
+  m_paintState.lastPosition          = Point(0, 0);
   m_paintState.glyphOptions.value    = 0;  // all options: 0
   m_paintState.paintOptions          = PaintOptions();
   m_paintState.scrollingRegion       = Rect(0, 0, getViewPortWidth() - 1, getViewPortHeight() - 1);
@@ -812,10 +813,16 @@ void IRAM_ATTR BitmappedDisplayController::execPrimitive(Primitive const & prim,
       setPixelAt(prim.pixelDesc, updateRect);
       break;
     case PrimitiveCmd::MoveTo:
-      paintState().position = Point(prim.position.X + paintState().origin.X, prim.position.Y + paintState().origin.Y);
+      paintState().pushPosition(Point(prim.position.X + paintState().origin.X, prim.position.Y + paintState().origin.Y));
       break;
     case PrimitiveCmd::LineTo:
       lineTo(prim.position, updateRect);
+      break;
+    case PrimitiveCmd::FillRow:
+      fillRowFromPos(prim.fillRowParams, updateRect);
+      break;
+    case PrimitiveCmd::FloodFill:
+      floodFillFromPos(prim.fillRowParams, updateRect);
       break;
     case PrimitiveCmd::FillRect:
       fillRect(prim.rect, getActualBrushColor(), updateRect);
@@ -984,7 +991,192 @@ void IRAM_ATTR BitmappedDisplayController::lineTo(Point const & position, Rect &
   hideSprites(updateRect);
   absDrawLine(x1, y1, x2, y2, color);
 
-  paintState().position = Point(x2, y2);
+  paintState().pushPosition(Point(x2, y2));
+}
+
+
+void IRAM_ATTR BitmappedDisplayController::fillRowFromPos(FillRowParams const & params, Rect & updateRect)
+{
+  absFillRowScan(params, updateRect);
+}
+
+
+// Default implementation of absFillRowScan using readScreen for pixel reading.
+// Display drivers can override with optimized versions using native pixel access.
+void BitmappedDisplayController::absFillRowScan(FillRowParams const & params, Rect & updateRect)
+{
+  auto & pState = paintState();
+  auto & clip = pState.absClippingRect;
+  int startX = pState.position.X;
+  int y = pState.position.Y;
+
+  if (y < clip.Y1 || y > clip.Y2) {
+    pState.pushPosition(Point(startX, y));
+    return;
+  }
+
+  startX = iclamp(startX, clip.X1, clip.X2);
+
+  RGB888 matchColor = params.matchColor;
+  bool scanLeft = params.flags & 0x01;
+  bool scanToMatch = params.flags & 0x02;
+
+  auto shouldFill = [&](int x) -> bool {
+    RGB888 pixel;
+    readScreen(Rect(x, y, x, y), &pixel);
+    bool matches = (pixel.R == matchColor.R && pixel.G == matchColor.G && pixel.B == matchColor.B);
+    return scanToMatch ? !matches : matches;
+  };
+
+  // scan right
+  int x2 = startX;
+  while (x2 <= clip.X2 && shouldFill(x2))
+    x2++;
+  x2--;
+
+  // scan left
+  int x1 = startX;
+  if (scanLeft) {
+    x1--;
+    while (x1 >= clip.X1 && shouldFill(x1))
+      x1--;
+    x1++;
+  }
+
+  // Matches Acorn's line fill behaviour: zero-length span (x1 == x2) is treated as nothing to draw,
+  // and position push in the no-fill case is tweaked (x2+1 for scanLeft) to match Acorn's cursor behaviour.
+  int pushX;
+  if (x1 < x2) {
+    updateRect = updateRect.merge(Rect(x1, y, x2, y));
+    hideSprites(updateRect);
+    fillRow(y, x1, x2, getActualPenColor());
+    pushX = x2;
+  } else {
+    pushX = scanLeft ? (x2 + 1) : x2;
+  }
+
+  pState.pushPosition(Point(pushX, y));
+}
+
+
+void IRAM_ATTR BitmappedDisplayController::floodFillFromPos(FillRowParams const & params, Rect & updateRect)
+{
+  absFloodFill(params, updateRect);
+}
+
+
+// Default implementation of absFloodFill using readScreen for pixel reading.
+// Display drivers can override with optimized versions using native pixel access.
+// Uses the scanline span-fill algorithm with direction tracking to avoid
+// re-scanning the parent row. See genericFloodFill for the template-based version.
+void BitmappedDisplayController::absFloodFill(FillRowParams const & params, Rect & updateRect)
+{
+  auto & pState = paintState();
+  auto & clip = pState.absClippingRect;
+  int startX = pState.position.X;
+  int startY = pState.position.Y;
+
+  if (startX < clip.X1 || startX > clip.X2 || startY < clip.Y1 || startY > clip.Y2)
+    return;
+
+  // Under NoOp paint mode, the fill changes no pixels — bail early.
+  if (pState.paintOptions.mode == PaintMode::NoOp)
+    return;
+
+  RGB888 matchColor = params.matchColor;
+  bool scanToMatch = params.flags & 0x02;
+
+  auto shouldFill = [&](int x, int y) -> bool {
+    RGB888 pixel;
+    readScreen(Rect(x, y, x, y), &pixel);
+    bool matches = (pixel.R == matchColor.R && pixel.G == matchColor.G && pixel.B == matchColor.B);
+    return scanToMatch ? !matches : matches;
+  };
+
+  if (!shouldFill(startX, startY))
+    return;
+
+  RGB888 penColor = getActualPenColor();
+
+  updateRect = updateRect.merge(clip);
+  hideSprites(updateRect);
+
+  // Fill the seed row's span directly, then push entries for adjacent rows.
+  int seedLeft = startX;
+  while (seedLeft > clip.X1 && shouldFill(seedLeft - 1, startY))
+    seedLeft--;
+  int seedRight = startX;
+  while (seedRight < clip.X2 && shouldFill(seedRight + 1, startY))
+    seedRight++;
+
+  fillRow(startY, seedLeft, seedRight, penColor);
+
+  struct SpanEntry {
+    int16_t x1;
+    int16_t x2;
+    int16_t y;
+    int8_t  dy;
+    uint8_t flags;
+  };
+
+  std::vector<SpanEntry> stack;
+  stack.reserve(64);
+  stack.push_back({(int16_t)seedLeft, (int16_t)seedRight, (int16_t)(startY + 1), (int8_t)1, (uint8_t)0});
+  stack.push_back({(int16_t)seedLeft, (int16_t)seedRight, (int16_t)(startY - 1), (int8_t)-1, (uint8_t)0});
+
+  int maxIterations = (clip.X2 - clip.X1 + 1) * (clip.Y2 - clip.Y1 + 1) + 1;
+  int iterations = 0;
+
+  while (!stack.empty()) {
+    if (++iterations > maxIterations)
+      break;
+
+    SpanEntry entry = stack.back();
+    stack.pop_back();
+
+    int y = entry.y;
+    int dy = entry.dy;
+    int rangeX1 = entry.x1;
+    int rangeX2 = entry.x2;
+
+    if (y < clip.Y1 || y > clip.Y2)
+      continue;
+
+    int extLeft = (entry.flags & 0x01) ? rangeX1 : (int)clip.X1;
+    int extRight = (entry.flags & 0x02) ? rangeX2 : (int)clip.X2;
+
+    int spanStart = rangeX1;
+    if (rangeX1 >= clip.X1 && rangeX1 <= clip.X2 && shouldFill(rangeX1, y)) {
+      while (spanStart > extLeft && shouldFill(spanStart - 1, y))
+        spanStart--;
+    }
+
+    int cursor = rangeX1;
+    int spanLeft = spanStart;
+    bool isFirstSpan = true;
+    while (cursor <= rangeX2) {
+      while (cursor <= extRight && shouldFill(cursor, y))
+        cursor++;
+
+      if (cursor > spanLeft) {
+        int spanRight = cursor - 1;
+        fillRow(y, spanLeft, spanRight, penColor);
+        stack.push_back({(int16_t)spanLeft, (int16_t)spanRight, (int16_t)(y + dy), (int8_t)dy, (uint8_t)0});
+        if (spanRight > rangeX2) {
+          stack.push_back({(int16_t)(rangeX2 + 1), (int16_t)spanRight, (int16_t)(y - dy), (int8_t)(-dy), (uint8_t)0x01});
+        }
+        if (isFirstSpan && spanLeft < rangeX1) {
+          stack.push_back({(int16_t)spanLeft, (int16_t)(rangeX1 - 1), (int16_t)(y - dy), (int8_t)(-dy), (uint8_t)0x02});
+        }
+      }
+
+      cursor++;
+      while (cursor <= rangeX2 && !shouldFill(cursor, y))
+        cursor++;
+      spanLeft = cursor;
+      isFirstSpan = false;
+    }
+  }
 }
 
 

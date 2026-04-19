@@ -266,6 +266,26 @@ void VGA8Controller::absDrawLine(int X1, int Y1, int X2, int Y2, RGB888 color)
 }
 
 
+void VGA8Controller::absFillRowScan(FillRowParams const & params, Rect & updateRect)
+{
+  genericFillRowScan(params, updateRect,
+                     getPixelLambda(PaintMode::Set),
+                     [&] (int y) { return (uint8_t*) m_viewPort[y]; },
+                     VGA8_GETPIXELINROW
+                     );
+}
+
+
+void VGA8Controller::absFloodFill(FillRowParams const & params, Rect & updateRect)
+{
+  genericFloodFill(params, updateRect,
+                   getPixelLambda(PaintMode::Set),
+                   [&] (int y) { return (uint8_t*) m_viewPort[y]; },
+                   VGA8_GETPIXELINROW
+                   );
+}
+
+
 // parameters not checked
 void VGA8Controller::fillRow(int y, int x1, int x2, RGB888 color)
 {
