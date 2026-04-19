@@ -382,6 +382,13 @@ void IRAM_ATTR VGAController::drawEllipse(Size const & size, Rect & updateRect)
 }
 
 
+void VGAController::absDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect)
+{
+  auto mode = paintState().paintOptions.mode;
+  genericDrawEllipseSheared(params, updateRect, getPixelLambda(mode), setPixelLambda(mode));
+}
+
+
 void IRAM_ATTR VGAController::drawArc(Rect const & rect, Rect & updateRect)
 {
   auto mode = paintState().paintOptions.mode;

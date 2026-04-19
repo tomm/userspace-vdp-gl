@@ -593,6 +593,29 @@ public:
   void fillEllipse(int X, int Y, int width, int height);
 
   /**
+   * @brief Draws the outline of a horizontally-sheared ellipse, using current pen color.
+   *
+   * The ellipse has an axis-aligned bounding ellipse of (width × height) but is
+   * horizontally sheared: rows offset by dy from the centre are shifted by
+   * (shear * dy / (height/2)) pixels horizontally. With shear=0 this is an
+   * axis-aligned ellipse.
+   *
+   * @param X Horizontal coordinate of the ellipse center.
+   * @param Y Vertical coordinate of the ellipse center.
+   * @param width Full width (2a) of the ellipse.
+   * @param height Full height (2b) of the ellipse.
+   * @param shear Horizontal shear: x-offset of the top of the ellipse from directly above centre.
+   */
+  void drawEllipseSheared(int X, int Y, int width, int height, int shear);
+
+  /**
+   * @brief Fills a horizontally-sheared ellipse, using current brush color.
+   *
+   * See drawEllipseSheared() for the shear semantics.
+   */
+  void fillEllipseSheared(int X, int Y, int width, int height, int shear);
+
+  /**
    * @brief Draws a glyph at specified position.
    *
    * A Glyph is a monochrome bitmap (1 bit per pixel) that can be painted using pen (foreground) and brush (background) colors.<br>

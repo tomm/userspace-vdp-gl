@@ -131,6 +131,15 @@ enum PrimitiveCmd : uint8_t {
   // params: size
   DrawEllipse,
 
+  // Fill a horizontally-sheared ellipse, current position is the center, using current brush color.
+  // Width/height specify full axes (2a, 2b); shear is horizontal offset of top from centre.
+  // params: ellipseShearedParams
+  FillEllipseSheared,
+
+  // Draw outline of a horizontally-sheared ellipse, current position is the center, using current pen color.
+  // params: ellipseShearedParams
+  DrawEllipseSheared,
+
   // Draw an arc of a circle, current position is the center, using current pen color
   // params: rect (providing a startPoint and endPoint)
   DrawArc,
@@ -720,6 +729,12 @@ struct FillRowParams {
 } __attribute__ ((packed));
 
 
+struct EllipseShearedParams {
+  Size    size;         // full width (2a) and full height (2b)
+  int16_t shear;        // horizontal shear: x-offset of the "top" point from the centre
+} __attribute__ ((packed));
+
+
 struct Primitive {
   PrimitiveCmd cmd;
   union {
@@ -740,6 +755,7 @@ struct Primitive {
     LinePattern            linePattern;
     LineOptions            lineOptions;
     FillRowParams          fillRowParams;
+    EllipseShearedParams   ellipseShearedParams;
     TaskHandle_t           notifyTask;
   } __attribute__ ((packed));
 
@@ -1071,6 +1087,8 @@ protected:
 
   virtual void drawEllipse(Size const & size, Rect & updateRect) = 0;
 
+  virtual void absDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect) = 0;
+
   virtual void drawArc(Rect const & rect, Rect & updateRect) = 0;
 
   virtual void fillSegment(Rect const & rect, Rect & updateRect) = 0;
@@ -1138,6 +1156,10 @@ protected:
   void fillRect(Rect const & rect, RGB888 const & color, Rect & updateRect);
 
   void fillEllipse(int centerX, int centerY, Size const & size, RGB888 const & color, Rect & updateRect);
+
+  void drawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect);
+
+  void fillEllipseSheared(EllipseShearedParams const & params, Rect & updateRect);
 
   void fillPath(Path const & path, RGB888 const & color, Rect & updateRect);
 
@@ -1423,6 +1445,132 @@ protected:
         dyt += d2yt;
         t += dyt;
       }
+    }
+  }
+
+
+  // Outline of a horizontally-sheared ellipse (Acorn PLOT &C0 family).
+  // Scanline-based: for each vertical offset dy from the centre, compute the two
+  // x boundaries of the ellipse on that row, with a horizontal shear proportional
+  // to dy. Adjacent rows' edge pixels are connected with a short diagonal segment
+  // (Bresenham-style: split between the two rows, with the transition in the
+  // middle of the horizontal run) to avoid gaps where the slope is steep.
+  template <typename TPreparePixel, typename TRawSetPixel>
+  void genericDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect,
+                                 TPreparePixel preparePixel, TRawSetPixel rawSetPixel)
+  {
+    auto & pState = paintState();
+    auto & clip = pState.absClippingRect;
+    auto pattern = preparePixel(getActualPenColor());
+
+    const int cx = pState.position.X;
+    const int cy = pState.position.Y;
+    const int halfW = params.size.width / 2;
+    const int halfH = params.size.height / 2;
+    const int shear = params.shear;
+
+    // Conservative update rect covering the sheared bounding box.
+    const int xSpan = halfW + (shear < 0 ? -shear : shear);
+    updateRect = updateRect.merge(Rect(cx - xSpan, cy - halfH, cx + xSpan, cy + halfH));
+    hideSprites(updateRect);
+
+    // Degenerate: zero-height ellipse is a horizontal line at cy.
+    if (halfH == 0) {
+      if (cy < clip.Y1 || cy > clip.Y2) return;
+      int x1 = iclamp(cx - halfW, (int)clip.X1, (int)clip.X2);
+      int x2 = iclamp(cx + halfW, (int)clip.X1, (int)clip.X2);
+      for (int x = x1; x <= x2; x++)
+        rawSetPixel(x, cy, pattern);
+      return;
+    }
+
+    auto plotPixel = [&](int x, int y) {
+      if (x >= clip.X1 && x <= clip.X2 && y >= clip.Y1 && y <= clip.Y2)
+        rawSetPixel(x, y, pattern);
+    };
+
+    // Draw a short line from (xA, yA) to (xB, yB) where the Y distance is 0 or 1.
+    // Bresenham-style: for a flat slope, distribute intermediate pixels between
+    // yA and yB with the transition in the middle of the horizontal run.
+    // skipPrevSide: if true, omit pixels on the yA row — used at dy=1 for the
+    // lower connection so that centre-row pixels (which the upper connection
+    // already covers) aren't plotted a second time.
+    auto connectShort = [&](int xA, int yA, int xB, int yB, bool skipPrevSide) {
+      if (xA == xB && yA == yB) return;
+      int dx = xB - xA;
+      int adx = dx < 0 ? -dx : dx;
+      if (adx <= 1) return;
+      int stepX = dx > 0 ? 1 : -1;
+      int midpoint = adx / 2;
+      int x = xA;
+      for (int i = 1; i < adx; i++) {
+        x += stepX;
+        bool isPrevSide = (i <= midpoint);
+        if (skipPrevSide && isPrevSide) continue;
+        int y = isPrevSide ? yA : yB;
+        plotPixel(x, y);
+      }
+    };
+
+    const float invHalfH = 1.0f / halfH;
+
+    int prevUpperL = 0, prevUpperR = 0;
+    int prevLowerL = 0, prevLowerR = 0;
+    int prevUpperY = 0, prevLowerY = 0;
+    bool hasPrev = false;
+
+    auto roundToInt = [](float f) -> int {
+      return (int)(f >= 0.0f ? f + 0.5f : f - 0.5f);
+    };
+
+    for (int dy = 0; dy <= halfH; dy++) {
+      // Compute edge positions in float, round once. This avoids compounding
+      // rounding errors that happen if shearOffset and halfWidthAtY are rounded
+      // separately then added.
+      const float norm = dy * invHalfH;
+      const float discriminant = 1.0f - norm * norm;
+      const float halfWidthAtY_f = halfW * sqrtf(discriminant);
+      const float shearOffset_f  = shear * (float)dy * invHalfH;
+
+      const int upperY = cy - dy;
+      const int lowerY = cy + dy;
+      const int upperL = cx + roundToInt(shearOffset_f - halfWidthAtY_f);
+      const int upperR = cx + roundToInt(shearOffset_f + halfWidthAtY_f);
+      const int lowerL = cx + roundToInt(-shearOffset_f - halfWidthAtY_f);
+      const int lowerR = cx + roundToInt(-shearOffset_f + halfWidthAtY_f);
+
+      // Where upperL==upperR (e.g. topmost row where halfWidthAtY rounds to 0),
+      // only plot once — a double-plot would cancel under XOR/Invert, leaving a gap.
+      plotPixel(upperL, upperY);
+      if (upperR != upperL) plotPixel(upperR, upperY);
+      if (dy != 0) {
+        plotPixel(lowerL, lowerY);
+        if (lowerR != lowerL) plotPixel(lowerR, lowerY);
+      }
+
+      // Connect each edge to the previous row's corresponding edge with a short
+      // diagonal segment, filling any multi-pixel gaps smoothly rather than with
+      // horizontal flanges.
+      // At dy=1 the lower connection starts from the same (centre) row as the
+      // upper connection, so its prev-side pixels would overlap upper's —
+      // skip them for the lower connection so every pixel is plotted at most once.
+      if (hasPrev) {
+        const bool lowerOverlapsCentre = (prevLowerY == prevUpperY);
+        connectShort(prevUpperL, prevUpperY, upperL, upperY, false);
+        connectShort(prevUpperR, prevUpperY, upperR, upperY, false);
+        if (dy != 0) {
+          connectShort(prevLowerL, prevLowerY, lowerL, lowerY, lowerOverlapsCentre);
+          connectShort(prevLowerR, prevLowerY, lowerR, lowerY, lowerOverlapsCentre);
+        }
+      }
+
+      prevUpperL = upperL;
+      prevUpperR = upperR;
+      prevLowerL = lowerL;
+      prevLowerR = lowerR;
+      prevUpperY = upperY;
+      prevLowerY = lowerY;
+      hasPrev = true;
     }
   }
 

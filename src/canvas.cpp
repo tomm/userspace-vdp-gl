@@ -375,6 +375,28 @@ void Canvas::drawEllipse(int X, int Y, int width, int height)
 }
 
 
+void Canvas::drawEllipseSheared(int X, int Y, int width, int height, int shear)
+{
+  moveTo(X, Y);
+  Primitive p;
+  p.cmd = PrimitiveCmd::DrawEllipseSheared;
+  p.ellipseShearedParams.size = Size(width, height);
+  p.ellipseShearedParams.shear = shear;
+  m_displayController->addPrimitive(p);
+}
+
+
+void Canvas::fillEllipseSheared(int X, int Y, int width, int height, int shear)
+{
+  moveTo(X, Y);
+  Primitive p;
+  p.cmd = PrimitiveCmd::FillEllipseSheared;
+  p.ellipseShearedParams.size = Size(width, height);
+  p.ellipseShearedParams.shear = shear;
+  m_displayController->addPrimitive(p);
+}
+
+
 void Canvas::drawArc(int X, int Y, int X1, int Y1, int X2, int Y2)
 {
   moveTo(X, Y);
