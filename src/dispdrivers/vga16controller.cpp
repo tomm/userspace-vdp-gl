@@ -395,6 +395,13 @@ void VGA16Controller::drawEllipse(Size const & size, Rect & updateRect)
 }
 
 
+void VGA16Controller::absDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect)
+{
+  auto mode = paintState().paintOptions.mode;
+  genericDrawEllipseSheared(params, updateRect, getPixelLambda(mode), setPixelLambda(mode));
+}
+
+
 void VGA16Controller::drawArc(Rect const & rect, Rect & updateRect)
 {
   auto mode = paintState().paintOptions.mode;

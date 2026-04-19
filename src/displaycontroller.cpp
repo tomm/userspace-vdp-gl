@@ -836,6 +836,12 @@ void IRAM_ATTR BitmappedDisplayController::execPrimitive(Primitive const & prim,
     case PrimitiveCmd::DrawEllipse:
       drawEllipse(prim.size, updateRect);
       break;
+    case PrimitiveCmd::FillEllipseSheared:
+      fillEllipseSheared(prim.ellipseShearedParams, updateRect);
+      break;
+    case PrimitiveCmd::DrawEllipseSheared:
+      drawEllipseSheared(prim.ellipseShearedParams, updateRect);
+      break;
     case PrimitiveCmd::DrawArc:
       drawArc(prim.rect, updateRect);
       break;
@@ -1298,6 +1304,120 @@ void IRAM_ATTR BitmappedDisplayController::fillEllipse(int centerX, int centerY,
   // one line horizontal ellipse case
   if (halfHeight == 0 && centerY >= clipY1 && centerY <= clipY2)
     fillRow(centerY, iclamp(centerX - halfWidth, clipX1, clipX2), iclamp(centerX - halfWidth + 2 * halfWidth + 1, clipX1, clipX2), color);
+}
+
+
+void IRAM_ATTR BitmappedDisplayController::drawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect)
+{
+  absDrawEllipseSheared(params, updateRect);
+}
+
+
+// Horizontally-sheared ellipse fill (Acorn PLOT &C8 family).
+// Scanline approach: iterate dy from 0 to halfH, compute the two x boundaries
+// of the ellipse on the corresponding rows (upper at cy-dy with +shear_offset,
+// lower at cy+dy with -shear_offset), and fill each row via virtual fillRow
+// (which handles paint modes per the display driver).
+void IRAM_ATTR BitmappedDisplayController::fillEllipseSheared(EllipseShearedParams const & params, Rect & updateRect)
+{
+  auto & pState = paintState();
+  auto & clip = pState.absClippingRect;
+  const RGB888 color = getActualBrushColor();
+
+  const int cx = pState.position.X;
+  const int cy = pState.position.Y;
+  const int halfW = params.size.width / 2;
+  const int halfH = params.size.height / 2;
+  const int shear = params.shear;
+
+  const int shearMag = shear < 0 ? -shear : shear;
+  updateRect = updateRect.merge(Rect(cx - halfW - shearMag, cy - halfH, cx + halfW + shearMag, cy + halfH));
+  hideSprites(updateRect);
+
+  auto doFillRow = [&](int y, int xL, int xR) {
+    if (y < clip.Y1 || y > clip.Y2) return;
+    if (xR < xL) return;
+    int a = xL < clip.X1 ? (int)clip.X1 : xL;
+    int b = xR > clip.X2 ? (int)clip.X2 : xR;
+    if (a > b) return;
+    fillRow(y, a, b, color);
+  };
+
+  // Degenerate: zero-height ellipse is a single horizontal line.
+  if (halfH == 0) {
+    doFillRow(cy, cx - halfW, cx + halfW);
+    return;
+  }
+
+  const float invHalfH = 1.0f / halfH;
+  auto roundToInt = [](float f) -> int {
+    return (int)(f >= 0.0f ? f + 0.5f : f - 0.5f);
+  };
+
+  // Match the outline algorithm: plot the same Bresenham-style connection pixels
+  // between adjacent rows' edge points. Some land outside the row's natural fill
+  // extent and need explicit painting to match the outline silhouette. Others land
+  // inside — under Set mode those are merely redundant, but under Invert/XOR the
+  // second paint cancels the first, so we must skip them.
+  auto connectEdge = [&](int xA, int yA, int xB, int yB, bool isRightEdge) {
+    int dx = xB - xA;
+    int adx = dx < 0 ? -dx : dx;
+    if (adx <= 1) return;
+    int stepX = dx > 0 ? 1 : -1;
+    int midpoint = adx / 2;
+    int x = xA;
+    for (int i = 1; i < adx; i++) {
+      x += stepX;
+      bool isPrevSide = (i <= midpoint);
+      int y = isPrevSide ? yA : yB;
+      int edge = isPrevSide ? xA : xB;
+      // "Inside" = on the interior side of this edge (inside the row's natural fill).
+      bool inside = isRightEdge ? (x < edge) : (x > edge);
+      if (inside) continue;
+      // Plot single pixel via a 1-wide fillRow (respects paint modes).
+      doFillRow(y, x, x);
+    }
+  };
+
+  int prevUpperL = 0, prevUpperR = 0;
+  int prevLowerL = 0, prevLowerR = 0;
+  int prevUpperY = 0, prevLowerY = 0;
+  bool hasPrev = false;
+
+  for (int dy = 0; dy <= halfH; dy++) {
+    const float norm = dy * invHalfH;
+    const float discriminant = 1.0f - norm * norm;
+    const float halfWidthAtY_f = halfW * sqrtf(discriminant);
+    const float shearOffset_f  = shear * (float)dy * invHalfH;
+
+    const int upperY = cy - dy;
+    const int lowerY = cy + dy;
+    const int upperL = cx + roundToInt(shearOffset_f - halfWidthAtY_f);
+    const int upperR = cx + roundToInt(shearOffset_f + halfWidthAtY_f);
+    const int lowerL = cx + roundToInt(-shearOffset_f - halfWidthAtY_f);
+    const int lowerR = cx + roundToInt(-shearOffset_f + halfWidthAtY_f);
+
+    doFillRow(upperY, upperL, upperR);
+    if (dy != 0)
+      doFillRow(lowerY, lowerL, lowerR);
+
+    if (hasPrev) {
+      connectEdge(prevUpperL, prevUpperY, upperL, upperY, false);
+      connectEdge(prevUpperR, prevUpperY, upperR, upperY, true);
+      if (dy != 0) {
+        connectEdge(prevLowerL, prevLowerY, lowerL, lowerY, false);
+        connectEdge(prevLowerR, prevLowerY, lowerR, lowerY, true);
+      }
+    }
+
+    prevUpperL = upperL;
+    prevUpperR = upperR;
+    prevLowerL = lowerL;
+    prevLowerR = lowerR;
+    prevUpperY = upperY;
+    prevLowerY = lowerY;
+    hasPrev = true;
+  }
 }
 
 
