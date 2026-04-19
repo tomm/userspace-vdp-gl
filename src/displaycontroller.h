@@ -1129,7 +1129,7 @@ protected:
 
   void waitForPrimitives();
 
-  inline Sprite * mouseCursor() { return &m_mouseCursor; }
+  inline Sprite * mouseCursor() { return m_mouseCursor; }
 
   inline Sprite * textCursor() { return m_textCursor; }
 
@@ -1154,7 +1154,7 @@ private:
   bool                   m_spritesHidden; // true between hideSprites() and showSprites()
 
   // mouse cursor (mouse pointer) support
-  Sprite                 m_mouseCursor;
+  Sprite *               m_mouseCursor;
   int16_t                m_mouseHotspotX;
   int16_t                m_mouseHotspotY;
   
