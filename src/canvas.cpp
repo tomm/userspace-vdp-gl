@@ -375,6 +375,28 @@ void Canvas::drawEllipse(int X, int Y, int width, int height)
 }
 
 
+void Canvas::drawEllipseSheared(int X, int Y, int width, int height, int shear)
+{
+  moveTo(X, Y);
+  Primitive p;
+  p.cmd = PrimitiveCmd::DrawEllipseSheared;
+  p.ellipseShearedParams.size = Size(width, height);
+  p.ellipseShearedParams.shear = shear;
+  m_displayController->addPrimitive(p);
+}
+
+
+void Canvas::fillEllipseSheared(int X, int Y, int width, int height, int shear)
+{
+  moveTo(X, Y);
+  Primitive p;
+  p.cmd = PrimitiveCmd::FillEllipseSheared;
+  p.ellipseShearedParams.size = Size(width, height);
+  p.ellipseShearedParams.shear = shear;
+  m_displayController->addPrimitive(p);
+}
+
+
 void Canvas::drawArc(int X, int Y, int X1, int Y1, int X2, int Y2)
 {
   moveTo(X, Y);
@@ -651,6 +673,32 @@ void Canvas::fillPath(Point const * points, int pointsCount)
   p.path.pointsCount = pointsCount;
   p.path.freePoints = false;
   m_displayController->addPrimitive(p);
+}
+
+
+void Canvas::fillRow(RGB888 matchColor, bool scanLeft, bool scanToMatch)
+{
+  Primitive p;
+  p.cmd = PrimitiveCmd::FillRow;
+  p.fillRowParams.matchColor = matchColor;
+  p.fillRowParams.flags = (scanLeft ? 0x01 : 0x00) | (scanToMatch ? 0x02 : 0x00);
+  m_displayController->addPrimitive(p);
+}
+
+
+void Canvas::floodFill(RGB888 matchColor, bool scanToMatch)
+{
+  Primitive p;
+  p.cmd = PrimitiveCmd::FloodFill;
+  p.fillRowParams.matchColor = matchColor;
+  p.fillRowParams.flags = scanToMatch ? 0x02 : 0x00;
+  m_displayController->addPrimitive(p);
+}
+
+
+Point Canvas::getPosition()
+{
+  return m_displayController->paintState().position;
 }
 
 

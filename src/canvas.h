@@ -593,6 +593,29 @@ public:
   void fillEllipse(int X, int Y, int width, int height);
 
   /**
+   * @brief Draws the outline of a horizontally-sheared ellipse, using current pen color.
+   *
+   * The ellipse has an axis-aligned bounding ellipse of (width × height) but is
+   * horizontally sheared: rows offset by dy from the centre are shifted by
+   * (shear * dy / (height/2)) pixels horizontally. With shear=0 this is an
+   * axis-aligned ellipse.
+   *
+   * @param X Horizontal coordinate of the ellipse center.
+   * @param Y Vertical coordinate of the ellipse center.
+   * @param width Full width (2a) of the ellipse.
+   * @param height Full height (2b) of the ellipse.
+   * @param shear Horizontal shear: x-offset of the top of the ellipse from directly above centre.
+   */
+  void drawEllipseSheared(int X, int Y, int width, int height, int shear);
+
+  /**
+   * @brief Fills a horizontally-sheared ellipse, using current brush color.
+   *
+   * See drawEllipseSheared() for the shear semantics.
+   */
+  void fillEllipseSheared(int X, int Y, int width, int height, int shear);
+
+  /**
    * @brief Draws a glyph at specified position.
    *
    * A Glyph is a monochrome bitmap (1 bit per pixel) that can be painted using pen (foreground) and brush (background) colors.<br>
@@ -852,6 +875,44 @@ public:
    *     Canvas.fillPath(points, 3);
    */
   void fillPath(Point const * points, int pointsCount);
+
+  /**
+   * @brief Scans and fills a horizontal row from the current position.
+   *
+   * Scans left and/or right from the current position, comparing pixels against matchColor.
+   * Fills the discovered span using the current pen color and paint options.
+   * Updates the current position to the right edge of the filled span.
+   *
+   * @param matchColor The boundary detection color to scan against.
+   * @param scanLeft If true, scans both left and right. If false, scans right only.
+   * @param scanToMatch If true, fills while pixel does NOT match matchColor (scan-until-matching).
+   *                    If false, fills while pixel DOES match matchColor (scan-while-matching).
+   */
+  void fillRow(RGB888 matchColor, bool scanLeft, bool scanToMatch);
+
+  /**
+   * @brief Flood fills a region starting from the current position.
+   *
+   * Uses a span-filling algorithm: fills the row containing the current position, then
+   * seeds adjacent rows and repeats. Fills using the current pen color and paint options.
+   * Bounded by the current clipping rectangle.
+   *
+   * @param matchColor The boundary detection color to scan against.
+   * @param scanToMatch If true, fills while pixels do NOT match matchColor (flood until matchColor).
+   *                    If false, fills while pixels DO match matchColor (flood while matchColor).
+   */
+  void floodFill(RGB888 matchColor, bool scanToMatch);
+
+  /**
+   * @brief Returns the current drawing position.
+   *
+   * This reads the position from the paint state, which may be updated by drawing operations
+   * such as lineTo() or fillRow(). Call after waitCompletion() to ensure the position reflects
+   * the result of queued primitives.
+   *
+   * @return Current drawing position as a Point.
+   */
+  Point getPosition();
 
   /**
    * @brief Reads the pixel at specified position.

@@ -250,6 +250,26 @@ void VGA16Controller::absDrawLine(int X1, int Y1, int X2, int Y2, RGB888 color)
 }
 
 
+void VGA16Controller::absFillRowScan(FillRowParams const & params, Rect & updateRect)
+{
+  genericFillRowScan(params, updateRect,
+                     getPixelLambda(PaintMode::Set),
+                     [&] (int y) { return (uint8_t*) m_viewPort[y]; },
+                     VGA16_GETPIXELINROW
+                     );
+}
+
+
+void VGA16Controller::absFloodFill(FillRowParams const & params, Rect & updateRect)
+{
+  genericFloodFill(params, updateRect,
+                   getPixelLambda(PaintMode::Set),
+                   [&] (int y) { return (uint8_t*) m_viewPort[y]; },
+                   VGA16_GETPIXELINROW
+                   );
+}
+
+
 // parameters not checked
 void VGA16Controller::fillRow(int y, int x1, int x2, RGB888 color)
 {
@@ -379,6 +399,13 @@ void VGA16Controller::drawEllipse(Size const & size, Rect & updateRect)
 {
   auto mode = paintState().paintOptions.mode;
   genericDrawEllipse(size, updateRect, getPixelLambda(mode), setPixelLambda(mode));
+}
+
+
+void VGA16Controller::absDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect)
+{
+  auto mode = paintState().paintOptions.mode;
+  genericDrawEllipseSheared(params, updateRect, getPixelLambda(mode), setPixelLambda(mode));
 }
 
 

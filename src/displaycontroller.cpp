@@ -488,9 +488,13 @@ BitmappedDisplayController::BitmappedDisplayController()
   m_sprites                             = nullptr;
   m_spritesCount                        = 0;
   m_doubleBuffered                      = false;
-  m_mouseCursor.visible                 = false;
+  m_textCursor                          = nullptr;  
   m_backgroundPrimitiveTimeoutEnabled   = true;
   m_spritesHidden                       = true;
+  // Create a mouse cursor sprite - must be in internal memory for hardware cursor support
+  m_mouseCursor = new Sprite();
+  m_mouseCursor->visible                 = false;
+  m_mouseCursor->hardware                = true;
 }
 
 
@@ -517,6 +521,7 @@ void IRAM_ATTR BitmappedDisplayController::resetPaintState()
   m_paintState.penColor              = RGB888(255, 255, 255);
   m_paintState.brushColor            = RGB888(0, 0, 0);
   m_paintState.position              = Point(0, 0);
+  m_paintState.lastPosition          = Point(0, 0);
   m_paintState.glyphOptions.value    = 0;  // all options: 0
   m_paintState.paintOptions          = PaintOptions();
   m_paintState.scrollingRegion       = Rect(0, 0, getViewPortWidth() - 1, getViewPortHeight() - 1);
@@ -745,19 +750,6 @@ void IRAM_ATTR BitmappedDisplayController::hideSprites(Rect & updateRect)
         }
       }
     }
-
-    // mouse cursor sprite
-    Sprite * mouseSprite = mouseCursor();
-    if (mouseSprite->savedBackgroundWidth > 0) {
-      int savedX = mouseSprite->savedX;
-      int savedY = mouseSprite->savedY;
-      int savedWidth  = mouseSprite->savedBackgroundWidth;
-      int savedHeight = mouseSprite->savedBackgroundHeight;
-      Bitmap bitmap(savedWidth, savedHeight, mouseSprite->savedBackground, PixelFormat::Native);
-      absDrawBitmap(savedX, savedY, &bitmap, nullptr, true);
-      updateRect = updateRect.merge(Rect(savedX, savedY, savedX + savedWidth - 1, savedY + savedHeight - 1));
-      mouseSprite->savedBackgroundWidth = mouseSprite->savedBackgroundHeight = 0;
-    }
   }
 }
 
@@ -792,25 +784,6 @@ void IRAM_ATTR BitmappedDisplayController::showSprites(Rect & updateRect)
       }
     }
 
-    // mouse cursor sprite
-    // save backgrounds and draw mouse cursor
-    Sprite * mouseSprite = mouseCursor();
-    if (mouseSprite->visible && mouseSprite->getFrame()) {
-      // save sprite X and Y so other threads can change them without interferring
-      int spriteX = mouseSprite->x;
-      int spriteY = mouseSprite->y;
-      Bitmap const * bitmap = mouseSprite->getFrame();
-      int bitmapWidth  = bitmap->width;
-      int bitmapHeight = bitmap->height;
-      paintState().paintOptions = PaintOptions();
-      absDrawBitmap(spriteX, spriteY, bitmap, mouseSprite->savedBackground, true);
-      mouseSprite->savedX = spriteX;
-      mouseSprite->savedY = spriteY;
-      mouseSprite->savedBackgroundWidth  = bitmapWidth;
-      mouseSprite->savedBackgroundHeight = bitmapHeight;
-      updateRect = updateRect.merge(Rect(spriteX, spriteY, spriteX + bitmapWidth - 1, spriteY + bitmapHeight - 1));
-    }
-
     paintState().paintOptions = options;
   }
 }
@@ -819,25 +792,18 @@ void IRAM_ATTR BitmappedDisplayController::showSprites(Rect & updateRect)
 // cursor = nullptr -> disable mouse
 void BitmappedDisplayController::setMouseCursor(Cursor * cursor)
 {
-  if (cursor == nullptr || &cursor->bitmap != m_mouseCursor.getFrame()) {
-    m_mouseCursor.visible = false;
-    m_mouseCursor.clearBitmaps();
-
-    refreshSprites();
-    processPrimitives();
-    primitivesExecutionWait();
+  if (cursor == nullptr || &cursor->bitmap != m_mouseCursor->getFrame()) {
+    m_mouseCursor->visible = false;
+    m_mouseCursor->clearBitmaps();
 
     if (cursor) {
-      m_mouseCursor.moveBy(+m_mouseHotspotX, +m_mouseHotspotY);
+      m_mouseCursor->moveBy(+m_mouseHotspotX, +m_mouseHotspotY);
       m_mouseHotspotX = cursor->hotspotX;
       m_mouseHotspotY = cursor->hotspotY;
-      m_mouseCursor.addBitmap(&cursor->bitmap);
-      m_mouseCursor.visible = true;
-      m_mouseCursor.moveBy(-m_mouseHotspotX, -m_mouseHotspotY);
-      if (!isDoubleBuffered())
-        m_mouseCursor.savedBackground = (uint8_t*) realloc(m_mouseCursor.savedBackground, cursor->bitmap.width * getBitmapSavePixelSize() * cursor->bitmap.height);
+      m_mouseCursor->addBitmap(&cursor->bitmap);
+      m_mouseCursor->moveBy(-m_mouseHotspotX, -m_mouseHotspotY);
+      m_mouseCursor->visible = true;
     }
-    refreshSprites();
   }
 }
 
@@ -850,8 +816,7 @@ void BitmappedDisplayController::setMouseCursor(CursorName cursorName)
 
 void BitmappedDisplayController::setMouseCursorPos(int X, int Y)
 {
-  m_mouseCursor.moveTo(X - m_mouseHotspotX, Y - m_mouseHotspotY);
-  refreshSprites();
+  m_mouseCursor->moveTo(X - m_mouseHotspotX, Y - m_mouseHotspotY);
 }
 
 
@@ -879,10 +844,16 @@ void IRAM_ATTR BitmappedDisplayController::execPrimitive(Primitive const & prim,
       setPixelAt(prim.pixelDesc, updateRect);
       break;
     case PrimitiveCmd::MoveTo:
-      paintState().position = Point(prim.position.X + paintState().origin.X, prim.position.Y + paintState().origin.Y);
+      paintState().pushPosition(Point(prim.position.X + paintState().origin.X, prim.position.Y + paintState().origin.Y));
       break;
     case PrimitiveCmd::LineTo:
       lineTo(prim.position, updateRect);
+      break;
+    case PrimitiveCmd::FillRow:
+      fillRowFromPos(prim.fillRowParams, updateRect);
+      break;
+    case PrimitiveCmd::FloodFill:
+      floodFillFromPos(prim.fillRowParams, updateRect);
       break;
     case PrimitiveCmd::FillRect:
       fillRect(prim.rect, getActualBrushColor(), updateRect);
@@ -895,6 +866,12 @@ void IRAM_ATTR BitmappedDisplayController::execPrimitive(Primitive const & prim,
       break;
     case PrimitiveCmd::DrawEllipse:
       drawEllipse(prim.size, updateRect);
+      break;
+    case PrimitiveCmd::FillEllipseSheared:
+      fillEllipseSheared(prim.ellipseShearedParams, updateRect);
+      break;
+    case PrimitiveCmd::DrawEllipseSheared:
+      drawEllipseSheared(prim.ellipseShearedParams, updateRect);
       break;
     case PrimitiveCmd::DrawArc:
       drawArc(prim.rect, updateRect);
@@ -1057,7 +1034,192 @@ void IRAM_ATTR BitmappedDisplayController::lineTo(Point const & position, Rect &
   hideSprites(updateRect);
   absDrawLine(x1, y1, x2, y2, color);
 
-  paintState().position = Point(x2, y2);
+  paintState().pushPosition(Point(x2, y2));
+}
+
+
+void IRAM_ATTR BitmappedDisplayController::fillRowFromPos(FillRowParams const & params, Rect & updateRect)
+{
+  absFillRowScan(params, updateRect);
+}
+
+
+// Default implementation of absFillRowScan using readScreen for pixel reading.
+// Display drivers can override with optimized versions using native pixel access.
+void BitmappedDisplayController::absFillRowScan(FillRowParams const & params, Rect & updateRect)
+{
+  auto & pState = paintState();
+  auto & clip = pState.absClippingRect;
+  int startX = pState.position.X;
+  int y = pState.position.Y;
+
+  if (y < clip.Y1 || y > clip.Y2) {
+    pState.pushPosition(Point(startX, y));
+    return;
+  }
+
+  startX = iclamp(startX, clip.X1, clip.X2);
+
+  RGB888 matchColor = params.matchColor;
+  bool scanLeft = params.flags & 0x01;
+  bool scanToMatch = params.flags & 0x02;
+
+  auto shouldFill = [&](int x) -> bool {
+    RGB888 pixel;
+    readScreen(Rect(x, y, x, y), &pixel);
+    bool matches = (pixel.R == matchColor.R && pixel.G == matchColor.G && pixel.B == matchColor.B);
+    return scanToMatch ? !matches : matches;
+  };
+
+  // scan right
+  int x2 = startX;
+  while (x2 <= clip.X2 && shouldFill(x2))
+    x2++;
+  x2--;
+
+  // scan left
+  int x1 = startX;
+  if (scanLeft) {
+    x1--;
+    while (x1 >= clip.X1 && shouldFill(x1))
+      x1--;
+    x1++;
+  }
+
+  // Matches Acorn's line fill behaviour: zero-length span (x1 == x2) is treated as nothing to draw,
+  // and position push in the no-fill case is tweaked (x2+1 for scanLeft) to match Acorn's cursor behaviour.
+  int pushX;
+  if (x1 < x2) {
+    updateRect = updateRect.merge(Rect(x1, y, x2, y));
+    hideSprites(updateRect);
+    fillRow(y, x1, x2, getActualPenColor());
+    pushX = x2;
+  } else {
+    pushX = scanLeft ? (x2 + 1) : x2;
+  }
+
+  pState.pushPosition(Point(pushX, y));
+}
+
+
+void IRAM_ATTR BitmappedDisplayController::floodFillFromPos(FillRowParams const & params, Rect & updateRect)
+{
+  absFloodFill(params, updateRect);
+}
+
+
+// Default implementation of absFloodFill using readScreen for pixel reading.
+// Display drivers can override with optimized versions using native pixel access.
+// Uses the scanline span-fill algorithm with direction tracking to avoid
+// re-scanning the parent row. See genericFloodFill for the template-based version.
+void BitmappedDisplayController::absFloodFill(FillRowParams const & params, Rect & updateRect)
+{
+  auto & pState = paintState();
+  auto & clip = pState.absClippingRect;
+  int startX = pState.position.X;
+  int startY = pState.position.Y;
+
+  if (startX < clip.X1 || startX > clip.X2 || startY < clip.Y1 || startY > clip.Y2)
+    return;
+
+  // Under NoOp paint mode, the fill changes no pixels — bail early.
+  if (pState.paintOptions.mode == PaintMode::NoOp)
+    return;
+
+  RGB888 matchColor = params.matchColor;
+  bool scanToMatch = params.flags & 0x02;
+
+  auto shouldFill = [&](int x, int y) -> bool {
+    RGB888 pixel;
+    readScreen(Rect(x, y, x, y), &pixel);
+    bool matches = (pixel.R == matchColor.R && pixel.G == matchColor.G && pixel.B == matchColor.B);
+    return scanToMatch ? !matches : matches;
+  };
+
+  if (!shouldFill(startX, startY))
+    return;
+
+  RGB888 penColor = getActualPenColor();
+
+  updateRect = updateRect.merge(clip);
+  hideSprites(updateRect);
+
+  // Fill the seed row's span directly, then push entries for adjacent rows.
+  int seedLeft = startX;
+  while (seedLeft > clip.X1 && shouldFill(seedLeft - 1, startY))
+    seedLeft--;
+  int seedRight = startX;
+  while (seedRight < clip.X2 && shouldFill(seedRight + 1, startY))
+    seedRight++;
+
+  fillRow(startY, seedLeft, seedRight, penColor);
+
+  struct SpanEntry {
+    int16_t x1;
+    int16_t x2;
+    int16_t y;
+    int8_t  dy;
+    uint8_t flags;
+  };
+
+  std::vector<SpanEntry> stack;
+  stack.reserve(64);
+  stack.push_back({(int16_t)seedLeft, (int16_t)seedRight, (int16_t)(startY + 1), (int8_t)1, (uint8_t)0});
+  stack.push_back({(int16_t)seedLeft, (int16_t)seedRight, (int16_t)(startY - 1), (int8_t)-1, (uint8_t)0});
+
+  int maxIterations = (clip.X2 - clip.X1 + 1) * (clip.Y2 - clip.Y1 + 1) + 1;
+  int iterations = 0;
+
+  while (!stack.empty()) {
+    if (++iterations > maxIterations)
+      break;
+
+    SpanEntry entry = stack.back();
+    stack.pop_back();
+
+    int y = entry.y;
+    int dy = entry.dy;
+    int rangeX1 = entry.x1;
+    int rangeX2 = entry.x2;
+
+    if (y < clip.Y1 || y > clip.Y2)
+      continue;
+
+    int extLeft = (entry.flags & 0x01) ? rangeX1 : (int)clip.X1;
+    int extRight = (entry.flags & 0x02) ? rangeX2 : (int)clip.X2;
+
+    int spanStart = rangeX1;
+    if (rangeX1 >= clip.X1 && rangeX1 <= clip.X2 && shouldFill(rangeX1, y)) {
+      while (spanStart > extLeft && shouldFill(spanStart - 1, y))
+        spanStart--;
+    }
+
+    int cursor = rangeX1;
+    int spanLeft = spanStart;
+    bool isFirstSpan = true;
+    while (cursor <= rangeX2) {
+      while (cursor <= extRight && shouldFill(cursor, y))
+        cursor++;
+
+      if (cursor > spanLeft) {
+        int spanRight = cursor - 1;
+        fillRow(y, spanLeft, spanRight, penColor);
+        stack.push_back({(int16_t)spanLeft, (int16_t)spanRight, (int16_t)(y + dy), (int8_t)dy, (uint8_t)0});
+        if (spanRight > rangeX2) {
+          stack.push_back({(int16_t)(rangeX2 + 1), (int16_t)spanRight, (int16_t)(y - dy), (int8_t)(-dy), (uint8_t)0x01});
+        }
+        if (isFirstSpan && spanLeft < rangeX1) {
+          stack.push_back({(int16_t)spanLeft, (int16_t)(rangeX1 - 1), (int16_t)(y - dy), (int8_t)(-dy), (uint8_t)0x02});
+        }
+      }
+
+      cursor++;
+      while (cursor <= rangeX2 && !shouldFill(cursor, y))
+        cursor++;
+      spanLeft = cursor;
+      isFirstSpan = false;
+    }
+  }
 }
 
 
@@ -1179,6 +1341,120 @@ void IRAM_ATTR BitmappedDisplayController::fillEllipse(int centerX, int centerY,
   // one line horizontal ellipse case
   if (halfHeight == 0 && centerY >= clipY1 && centerY <= clipY2)
     fillRow(centerY, iclamp(centerX - halfWidth, clipX1, clipX2), iclamp(centerX - halfWidth + 2 * halfWidth + 1, clipX1, clipX2), color);
+}
+
+
+void IRAM_ATTR BitmappedDisplayController::drawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect)
+{
+  absDrawEllipseSheared(params, updateRect);
+}
+
+
+// Horizontally-sheared ellipse fill (Acorn PLOT &C8 family).
+// Scanline approach: iterate dy from 0 to halfH, compute the two x boundaries
+// of the ellipse on the corresponding rows (upper at cy-dy with +shear_offset,
+// lower at cy+dy with -shear_offset), and fill each row via virtual fillRow
+// (which handles paint modes per the display driver).
+void IRAM_ATTR BitmappedDisplayController::fillEllipseSheared(EllipseShearedParams const & params, Rect & updateRect)
+{
+  auto & pState = paintState();
+  auto & clip = pState.absClippingRect;
+  const RGB888 color = getActualBrushColor();
+
+  const int cx = pState.position.X;
+  const int cy = pState.position.Y;
+  const int halfW = params.size.width / 2;
+  const int halfH = params.size.height / 2;
+  const int shear = params.shear;
+
+  const int shearMag = shear < 0 ? -shear : shear;
+  updateRect = updateRect.merge(Rect(cx - halfW - shearMag, cy - halfH, cx + halfW + shearMag, cy + halfH));
+  hideSprites(updateRect);
+
+  auto doFillRow = [&](int y, int xL, int xR) {
+    if (y < clip.Y1 || y > clip.Y2) return;
+    if (xR < xL) return;
+    int a = xL < clip.X1 ? (int)clip.X1 : xL;
+    int b = xR > clip.X2 ? (int)clip.X2 : xR;
+    if (a > b) return;
+    fillRow(y, a, b, color);
+  };
+
+  // Degenerate: zero-height ellipse is a single horizontal line.
+  if (halfH == 0) {
+    doFillRow(cy, cx - halfW, cx + halfW);
+    return;
+  }
+
+  const float invHalfH = 1.0f / halfH;
+  auto roundToInt = [](float f) -> int {
+    return (int)(f >= 0.0f ? f + 0.5f : f - 0.5f);
+  };
+
+  // Match the outline algorithm: plot the same Bresenham-style connection pixels
+  // between adjacent rows' edge points. Some land outside the row's natural fill
+  // extent and need explicit painting to match the outline silhouette. Others land
+  // inside — under Set mode those are merely redundant, but under Invert/XOR the
+  // second paint cancels the first, so we must skip them.
+  auto connectEdge = [&](int xA, int yA, int xB, int yB, bool isRightEdge) {
+    int dx = xB - xA;
+    int adx = dx < 0 ? -dx : dx;
+    if (adx <= 1) return;
+    int stepX = dx > 0 ? 1 : -1;
+    int midpoint = adx / 2;
+    int x = xA;
+    for (int i = 1; i < adx; i++) {
+      x += stepX;
+      bool isPrevSide = (i <= midpoint);
+      int y = isPrevSide ? yA : yB;
+      int edge = isPrevSide ? xA : xB;
+      // "Inside" = on the interior side of this edge (inside the row's natural fill).
+      bool inside = isRightEdge ? (x < edge) : (x > edge);
+      if (inside) continue;
+      // Plot single pixel via a 1-wide fillRow (respects paint modes).
+      doFillRow(y, x, x);
+    }
+  };
+
+  int prevUpperL = 0, prevUpperR = 0;
+  int prevLowerL = 0, prevLowerR = 0;
+  int prevUpperY = 0, prevLowerY = 0;
+  bool hasPrev = false;
+
+  for (int dy = 0; dy <= halfH; dy++) {
+    const float norm = dy * invHalfH;
+    const float discriminant = 1.0f - norm * norm;
+    const float halfWidthAtY_f = halfW * sqrtf(discriminant);
+    const float shearOffset_f  = shear * (float)dy * invHalfH;
+
+    const int upperY = cy - dy;
+    const int lowerY = cy + dy;
+    const int upperL = cx + roundToInt(shearOffset_f - halfWidthAtY_f);
+    const int upperR = cx + roundToInt(shearOffset_f + halfWidthAtY_f);
+    const int lowerL = cx + roundToInt(-shearOffset_f - halfWidthAtY_f);
+    const int lowerR = cx + roundToInt(-shearOffset_f + halfWidthAtY_f);
+
+    doFillRow(upperY, upperL, upperR);
+    if (dy != 0)
+      doFillRow(lowerY, lowerL, lowerR);
+
+    if (hasPrev) {
+      connectEdge(prevUpperL, prevUpperY, upperL, upperY, false);
+      connectEdge(prevUpperR, prevUpperY, upperR, upperY, true);
+      if (dy != 0) {
+        connectEdge(prevLowerL, prevLowerY, lowerL, lowerY, false);
+        connectEdge(prevLowerR, prevLowerY, lowerR, lowerY, true);
+      }
+    }
+
+    prevUpperL = upperL;
+    prevUpperR = upperR;
+    prevLowerL = lowerL;
+    prevLowerR = lowerR;
+    prevUpperY = upperY;
+    prevLowerY = lowerY;
+    hasPrev = true;
+  }
 }
 
 

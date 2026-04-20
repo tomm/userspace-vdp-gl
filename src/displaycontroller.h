@@ -103,6 +103,20 @@ enum PrimitiveCmd : uint8_t {
   // params: point
   LineTo,
 
+  // Scan and fill a horizontal row from current position.
+  // Drawing uses current pen color and paint options.
+  // Scanning uses matchColor from params for boundary detection.
+  // Updates position to right edge of filled span.
+  // params: fillRowParams
+  FillRow,
+
+  // Flood fill starting from current position using span-filling algorithm.
+  // Drawing uses current pen color and paint options.
+  // Scanning uses matchColor from params for boundary detection.
+  // scanLeft flag in params is ignored (flood always scans both directions).
+  // params: fillRowParams
+  FloodFill,
+
   // Fill a rectangle using current brush color
   // params: rect
   FillRect,
@@ -118,6 +132,15 @@ enum PrimitiveCmd : uint8_t {
   // Draw an ellipse, current position is the center, using current pen color
   // params: size
   DrawEllipse,
+
+  // Fill a horizontally-sheared ellipse, current position is the center, using current brush color.
+  // Width/height specify full axes (2a, 2b); shear is horizontal offset of top from centre.
+  // params: ellipseShearedParams
+  FillEllipseSheared,
+
+  // Draw outline of a horizontally-sheared ellipse, current position is the center, using current pen color.
+  // params: ellipseShearedParams
+  DrawEllipseSheared,
 
   // Draw an arc of a circle, current position is the center, using current pen color
   // params: rect (providing a startPoint and endPoint)
@@ -700,6 +723,20 @@ struct LineOptions {
 } __attribute__ ((packed));
 
 
+struct FillRowParams {
+  RGB888 matchColor;    // boundary detection color
+  uint8_t flags;        // bit 0: scanLeft (1=left+right, 0=right only)
+                        // bit 1: scanToMatch (1=scan until hitting matchColor,
+                        //                     0=scan while matching matchColor)
+} __attribute__ ((packed));
+
+
+struct EllipseShearedParams {
+  Size    size;         // full width (2a) and full height (2b)
+  int16_t shear;        // horizontal shear: x-offset of the "top" point from the centre
+} __attribute__ ((packed));
+
+
 struct Primitive {
   PrimitiveCmd cmd;
   union {
@@ -719,6 +756,8 @@ struct Primitive {
     LineEnds               lineEnds;
     LinePattern            linePattern;
     LineOptions            lineOptions;
+    FillRowParams          fillRowParams;
+    EllipseShearedParams   ellipseShearedParams;
     TaskHandle_t           notifyTask;
   } __attribute__ ((packed));
 
@@ -732,6 +771,7 @@ struct PaintState {
   RGB888       penColor;
   RGB888       brushColor;
   Point        position;        // value already translated to "origin"
+  Point        lastPosition;
   GlyphOptions glyphOptions;
   PaintOptions paintOptions;
   Rect         scrollingRegion;
@@ -743,6 +783,10 @@ struct PaintState {
   LineOptions  lineOptions;
   LinePattern  linePattern;
   int8_t       linePatternLength;
+  void         pushPosition(Point newPosition) {
+    lastPosition = position;
+    position = newPosition;
+  }
 };
 
 
@@ -1007,6 +1051,13 @@ public:
    */
   void setMouseCursorPos(int X, int Y);
 
+  /**
+   * @brief Set the text cursor sprite
+   * 
+   * @param sprite The sprite to use as text cursor. nullptr = disable text cursor.
+   */
+  void setTextCursor(Sprite * sprite) { m_textCursor = sprite; }
+
   virtual void readScreen(Rect const & rect, RGB888 * destBuf) = 0;
 
 
@@ -1032,7 +1083,19 @@ protected:
 
   virtual void fillRow(int y, int x1, int x2, RGB888 color) = 0;
 
+  // Scan and fill a horizontal row from the current position.
+  // Default implementation uses readScreen for pixel reading. Display drivers
+  // can override with optimized versions using native pixel access.
+  virtual void absFillRowScan(FillRowParams const & params, Rect & updateRect);
+
+  // Flood fill starting from the current position using span-filling algorithm.
+  // Default implementation uses readScreen for pixel reading. Display drivers
+  // can override with optimized versions using native pixel access.
+  virtual void absFloodFill(FillRowParams const & params, Rect & updateRect);
+
   virtual void drawEllipse(Size const & size, Rect & updateRect) = 0;
+
+  virtual void absDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect) = 0;
 
   virtual void drawArc(Rect const & rect, Rect & updateRect) = 0;
 
@@ -1094,9 +1157,17 @@ protected:
 
   void absDrawThickLine(int X1, int Y1, int X2, int Y2, int penWidth, RGB888 const & color);
 
+  void fillRowFromPos(FillRowParams const & params, Rect & updateRect);
+
+  void floodFillFromPos(FillRowParams const & params, Rect & updateRect);
+
   void fillRect(Rect const & rect, RGB888 const & color, Rect & updateRect);
 
   void fillEllipse(int centerX, int centerY, Size const & size, RGB888 const & color, Rect & updateRect);
+
+  void drawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect);
+
+  void fillEllipseSheared(EllipseShearedParams const & params, Rect & updateRect);
 
   void fillPath(Path const & path, RGB888 const & color, Rect & updateRect);
 
@@ -1130,7 +1201,9 @@ protected:
 
   void waitForPrimitives();
 
-  Sprite * mouseCursor() { return &m_mouseCursor; }
+  inline Sprite * mouseCursor() { return m_mouseCursor; }
+
+  inline Sprite * textCursor() { return m_textCursor; }
 
   void resetPaintState();
 
@@ -1153,9 +1226,15 @@ private:
   bool                   m_spritesHidden; // true between hideSprites() and showSprites()
 
   // mouse cursor (mouse pointer) support
-  Sprite                 m_mouseCursor;
+  Sprite *               m_mouseCursor;
   int16_t                m_mouseHotspotX;
   int16_t                m_mouseHotspotY;
+  
+  // Optional hardware text cursor sprite
+  Sprite *               m_textCursor;
+
+  // memory pool used to allocate buffers of primitives
+  LightMemoryPool        m_primDynMemPool;
 };
 
 
@@ -1372,6 +1451,359 @@ protected:
         y--;
         dyt += d2yt;
         t += dyt;
+      }
+    }
+  }
+
+
+  // Outline of a horizontally-sheared ellipse (Acorn PLOT &C0 family).
+  // Scanline-based: for each vertical offset dy from the centre, compute the two
+  // x boundaries of the ellipse on that row, with a horizontal shear proportional
+  // to dy. Adjacent rows' edge pixels are connected with a short diagonal segment
+  // (Bresenham-style: split between the two rows, with the transition in the
+  // middle of the horizontal run) to avoid gaps where the slope is steep.
+  template <typename TPreparePixel, typename TRawSetPixel>
+  void genericDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect,
+                                 TPreparePixel preparePixel, TRawSetPixel rawSetPixel)
+  {
+    auto & pState = paintState();
+    auto & clip = pState.absClippingRect;
+    auto pattern = preparePixel(getActualPenColor());
+
+    const int cx = pState.position.X;
+    const int cy = pState.position.Y;
+    const int halfW = params.size.width / 2;
+    const int halfH = params.size.height / 2;
+    const int shear = params.shear;
+
+    // Conservative update rect covering the sheared bounding box.
+    const int xSpan = halfW + (shear < 0 ? -shear : shear);
+    updateRect = updateRect.merge(Rect(cx - xSpan, cy - halfH, cx + xSpan, cy + halfH));
+    hideSprites(updateRect);
+
+    // Degenerate: zero-height ellipse is a horizontal line at cy.
+    if (halfH == 0) {
+      if (cy < clip.Y1 || cy > clip.Y2) return;
+      int x1 = iclamp(cx - halfW, (int)clip.X1, (int)clip.X2);
+      int x2 = iclamp(cx + halfW, (int)clip.X1, (int)clip.X2);
+      for (int x = x1; x <= x2; x++)
+        rawSetPixel(x, cy, pattern);
+      return;
+    }
+
+    auto plotPixel = [&](int x, int y) {
+      if (x >= clip.X1 && x <= clip.X2 && y >= clip.Y1 && y <= clip.Y2)
+        rawSetPixel(x, y, pattern);
+    };
+
+    // Draw a short line from (xA, yA) to (xB, yB) where the Y distance is 0 or 1.
+    // Bresenham-style: for a flat slope, distribute intermediate pixels between
+    // yA and yB with the transition in the middle of the horizontal run.
+    // skipPrevSide: if true, omit pixels on the yA row — used at dy=1 for the
+    // lower connection so that centre-row pixels (which the upper connection
+    // already covers) aren't plotted a second time.
+    auto connectShort = [&](int xA, int yA, int xB, int yB, bool skipPrevSide) {
+      if (xA == xB && yA == yB) return;
+      int dx = xB - xA;
+      int adx = dx < 0 ? -dx : dx;
+      if (adx <= 1) return;
+      int stepX = dx > 0 ? 1 : -1;
+      int midpoint = adx / 2;
+      int x = xA;
+      for (int i = 1; i < adx; i++) {
+        x += stepX;
+        bool isPrevSide = (i <= midpoint);
+        if (skipPrevSide && isPrevSide) continue;
+        int y = isPrevSide ? yA : yB;
+        plotPixel(x, y);
+      }
+    };
+
+    const float invHalfH = 1.0f / halfH;
+
+    int prevUpperL = 0, prevUpperR = 0;
+    int prevLowerL = 0, prevLowerR = 0;
+    int prevUpperY = 0, prevLowerY = 0;
+    bool hasPrev = false;
+
+    auto roundToInt = [](float f) -> int {
+      return (int)(f >= 0.0f ? f + 0.5f : f - 0.5f);
+    };
+
+    for (int dy = 0; dy <= halfH; dy++) {
+      // Compute edge positions in float, round once. This avoids compounding
+      // rounding errors that happen if shearOffset and halfWidthAtY are rounded
+      // separately then added.
+      const float norm = dy * invHalfH;
+      const float discriminant = 1.0f - norm * norm;
+      const float halfWidthAtY_f = halfW * sqrtf(discriminant);
+      const float shearOffset_f  = shear * (float)dy * invHalfH;
+
+      const int upperY = cy - dy;
+      const int lowerY = cy + dy;
+      const int upperL = cx + roundToInt(shearOffset_f - halfWidthAtY_f);
+      const int upperR = cx + roundToInt(shearOffset_f + halfWidthAtY_f);
+      const int lowerL = cx + roundToInt(-shearOffset_f - halfWidthAtY_f);
+      const int lowerR = cx + roundToInt(-shearOffset_f + halfWidthAtY_f);
+
+      // Where upperL==upperR (e.g. topmost row where halfWidthAtY rounds to 0),
+      // only plot once — a double-plot would cancel under XOR/Invert, leaving a gap.
+      plotPixel(upperL, upperY);
+      if (upperR != upperL) plotPixel(upperR, upperY);
+      if (dy != 0) {
+        plotPixel(lowerL, lowerY);
+        if (lowerR != lowerL) plotPixel(lowerR, lowerY);
+      }
+
+      // Connect each edge to the previous row's corresponding edge with a short
+      // diagonal segment, filling any multi-pixel gaps smoothly rather than with
+      // horizontal flanges.
+      // At dy=1 the lower connection starts from the same (centre) row as the
+      // upper connection, so its prev-side pixels would overlap upper's —
+      // skip them for the lower connection so every pixel is plotted at most once.
+      if (hasPrev) {
+        const bool lowerOverlapsCentre = (prevLowerY == prevUpperY);
+        connectShort(prevUpperL, prevUpperY, upperL, upperY, false);
+        connectShort(prevUpperR, prevUpperY, upperR, upperY, false);
+        if (dy != 0) {
+          connectShort(prevLowerL, prevLowerY, lowerL, lowerY, lowerOverlapsCentre);
+          connectShort(prevLowerR, prevLowerY, lowerR, lowerY, lowerOverlapsCentre);
+        }
+      }
+
+      prevUpperL = upperL;
+      prevUpperR = upperR;
+      prevLowerL = lowerL;
+      prevLowerR = lowerR;
+      prevUpperY = upperY;
+      prevLowerY = lowerY;
+      hasPrev = true;
+    }
+  }
+
+
+  // Scan and fill a horizontal row from the current position.
+  // Scans left and/or right from position, comparing native pixel values against matchColor.
+  // Fills the discovered span using pen color and current paint options.
+  // Updates position to the right edge of the filled span.
+  template <typename TPreparePixel, typename TRawGetRow, typename TRawGetPixelInRow>
+  void genericFillRowScan(FillRowParams const & params, Rect & updateRect,
+                          TPreparePixel preparePixel, TRawGetRow rawGetRow, TRawGetPixelInRow rawGetPixelInRow)
+  {
+    auto & pState = paintState();
+    auto & clip = pState.absClippingRect;
+    int startX = pState.position.X;
+    int y = pState.position.Y;
+
+    // bail if starting position is outside clipping rect vertically
+    if (y < clip.Y1 || y > clip.Y2) {
+      pState.pushPosition(Point(startX, y));
+      return;
+    }
+
+    // clamp starting X to clipping rect
+    startX = iclamp(startX, clip.X1, clip.X2);
+
+    auto nativeMatch = preparePixel(params.matchColor);
+    bool scanLeft = params.flags & 0x01;
+    bool scanToMatch = params.flags & 0x02;
+
+    auto row = rawGetRow(y);
+
+    // shouldFill: returns true if this pixel should be included in the fill span
+    // scanToMatch=false: fill while pixel matches matchColor (scan-while-matching)
+    // scanToMatch=true:  fill while pixel does NOT match matchColor (scan-until-matching)
+    auto shouldFill = [&](int x) -> bool {
+      auto pixel = rawGetPixelInRow(row, x);
+      return scanToMatch ? (pixel != nativeMatch) : (pixel == nativeMatch);
+    };
+
+    // scan right from starting position
+    int x2 = startX;
+    while (x2 <= clip.X2 && shouldFill(x2))
+      x2++;
+    x2--;  // last pixel that satisfied the condition
+
+    // scan left from starting position (if requested)
+    int x1 = startX;
+    if (scanLeft) {
+      x1--;
+      while (x1 >= clip.X1 && shouldFill(x1))
+        x1--;
+      x1++;  // last pixel that satisfied the condition
+    }
+
+    // fill the span if valid (x1 < x2), and update position.
+    // Matches Acorn's line fill behaviour: a zero-length span (x1 == x2) is treated as nothing to draw,
+    // and the position push in the no-fill case is tweaked (x2+1 for scanLeft) to match Acorn's cursor behaviour.
+    int pushX;
+    if (x1 < x2) {
+      updateRect = updateRect.merge(Rect(x1, y, x2, y));
+      hideSprites(updateRect);
+      fillRow(y, x1, x2, getActualPenColor());
+      pushX = x2;
+    } else {
+      pushX = scanLeft ? (x2 + 1) : x2;
+    }
+
+    pState.pushPosition(Point(pushX, y));
+  }
+
+
+  // Flood fill starting from the current position using a scanline span-fill algorithm.
+  // Uses direction tracking to avoid re-scanning the parent row's fill range — each
+  // stack entry represents (x-range, row, direction-we-came-from), so child scans
+  // naturally continue away from the parent unless an overhang reaches back.
+  // This structure bounds re-visits and keeps the stack small without needing
+  // a separate visited bitmap or filled-span list.
+  // (Reference: Wikipedia "Flood fill", combined-scan-and-fill variant.)
+  template <typename TPreparePixel, typename TRawGetRow, typename TRawGetPixelInRow>
+  void genericFloodFill(FillRowParams const & params, Rect & updateRect,
+                        TPreparePixel preparePixel, TRawGetRow rawGetRow, TRawGetPixelInRow rawGetPixelInRow)
+  {
+    auto & pState = paintState();
+    auto & clip = pState.absClippingRect;
+    int startX = pState.position.X;
+    int startY = pState.position.Y;
+
+    // bail if starting position is outside clipping rect
+    if (startX < clip.X1 || startX > clip.X2 || startY < clip.Y1 || startY > clip.Y2)
+      return;
+
+    // Under NoOp paint mode, fillRow changes no pixels — propagating through the
+    // shape would do lots of scanning for zero visible effect. Bail early.
+    // (Acorn's implementation hangs in this case; ours terminates but slowly.)
+    if (pState.paintOptions.mode == PaintMode::NoOp)
+      return;
+
+    auto nativeMatch = preparePixel(params.matchColor);
+    bool scanToMatch = params.flags & 0x02;
+
+    auto shouldFillAt = [&](decltype(rawGetRow(0)) row, int x) -> bool {
+      auto pixel = rawGetPixelInRow(row, x);
+      return scanToMatch ? (pixel != nativeMatch) : (pixel == nativeMatch);
+    };
+
+    // Check starting pixel; if not fillable, nothing to do.
+    auto seedRow = rawGetRow(startY);
+    if (!shouldFillAt(seedRow, startX))
+      return;
+
+    RGB888 penColor = getActualPenColor();
+
+    updateRect = updateRect.merge(clip);
+    hideSprites(updateRect);
+
+    // Process the seed row directly: compute its full span and fill it. This avoids
+    // seeding the stack with single-pixel "point" entries, whose left-extension
+    // would re-sweep through pixels already filled by overhang back-scans from the
+    // other initial direction (harmless under Set mode but causes cascading re-fills
+    // under non-Set paint modes where shouldFill doesn't flip after a fill).
+    int seedLeft = startX;
+    while (seedLeft > clip.X1 && shouldFillAt(seedRow, seedLeft - 1))
+      seedLeft--;
+    int seedRight = startX;
+    while (seedRight < clip.X2 && shouldFillAt(seedRow, seedRight + 1))
+      seedRight++;
+
+    fillRow(startY, seedLeft, seedRight, penColor);
+
+    // Stack entry: scan row y in the x range [x1..x2], having arrived from row y-dy.
+    // dy is either +1 (moving down) or -1 (moving up).
+    // flags bit 0: boundLeft (extension bounded at x1, used for right-overhang back-scans
+    //   so the scan doesn't reach into the parent row's already-filled range on the left).
+    // flags bit 1: boundRight (extension bounded at x2, used for left-overhang back-scans
+    //   so the scan doesn't reach into the parent row's already-filled range on the right).
+    struct SpanEntry {
+      int16_t x1;
+      int16_t x2;
+      int16_t y;
+      int8_t  dy;
+      uint8_t flags;
+    };
+
+    std::vector<SpanEntry> stack;
+    stack.reserve(64);
+
+    // Push entries for the two adjacent rows, both with the seed row's full span
+    // as the scan range. No "point" entries.
+    stack.push_back({(int16_t)seedLeft, (int16_t)seedRight, (int16_t)(startY + 1), (int8_t)1, (uint8_t)0});
+    stack.push_back({(int16_t)seedLeft, (int16_t)seedRight, (int16_t)(startY - 1), (int8_t)-1, (uint8_t)0});
+
+    // Defensive iteration cap for paint modes where shouldFillAt stays true after a fill.
+    // Under such modes the algorithm may oscillate; this prevents a hang.
+    int maxIterations = (clip.X2 - clip.X1 + 1) * (clip.Y2 - clip.Y1 + 1) + 1;
+    int iterations = 0;
+
+    while (!stack.empty()) {
+      if (++iterations > maxIterations)
+        break;
+
+      SpanEntry entry = stack.back();
+      stack.pop_back();
+
+      int y = entry.y;
+      int dy = entry.dy;
+      int rangeX1 = entry.x1;
+      int rangeX2 = entry.x2;
+
+      if (y < clip.Y1 || y > clip.Y2)
+        continue;
+
+      auto row = rawGetRow(y);
+
+      // Extension bounds — overhang back-scans are restricted so that extension
+      // does not reach into the parent row's already-filled range.
+      int extLeft = (entry.flags & 0x01) ? rangeX1 : (int)clip.X1;
+      int extRight = (entry.flags & 0x02) ? rangeX2 : (int)clip.X2;
+
+      // Left extension: if the left edge of the range is fillable, walk leftwards
+      // to find the leftmost fillable pixel (capped at extLeft).
+      int spanStart = rangeX1;
+      if (rangeX1 >= clip.X1 && rangeX1 <= clip.X2 && shouldFillAt(row, rangeX1)) {
+        while (spanStart > extLeft && shouldFillAt(row, spanStart - 1))
+          spanStart--;
+      }
+
+      // Main loop: walk rightward through [rangeX1..rangeX2] finding spans to fill.
+      int cursor = rangeX1;
+      int spanLeft = spanStart;
+      bool isFirstSpan = true;
+      while (cursor <= rangeX2) {
+        // Extend the span to the right until we hit a non-fillable pixel or the extension cap.
+        while (cursor <= extRight && shouldFillAt(row, cursor))
+          cursor++;
+
+        // If we covered any fillable pixels (from spanLeft up to cursor-1), fill the span
+        // and queue follow-up scans.
+        if (cursor > spanLeft) {
+          int spanRight = cursor - 1;
+          fillRow(y, spanLeft, spanRight, penColor);
+          // Continue in the same direction (away from parent) for this span — unbounded
+          // because the continuation lands on a different row where extension is safe.
+          stack.push_back({(int16_t)spanLeft, (int16_t)spanRight, (int16_t)(y + dy), (int8_t)dy, (uint8_t)0});
+          // If the span extends past the original range on the right, push a back-scan
+          // for the right overhang. Its left extension must stop at the overhang boundary
+          // (so it doesn't cross back into the parent row's filled range).
+          if (spanRight > rangeX2) {
+            stack.push_back({(int16_t)(rangeX2 + 1), (int16_t)spanRight, (int16_t)(y - dy), (int8_t)(-dy), (uint8_t)0x01});
+          }
+          // If the first span extended left beyond the original range, push a back-scan
+          // for the left overhang. Its right extension is bounded by the overhang range.
+          if (isFirstSpan && spanLeft < rangeX1) {
+            stack.push_back({(int16_t)spanLeft, (int16_t)(rangeX1 - 1), (int16_t)(y - dy), (int8_t)(-dy), (uint8_t)0x02});
+          }
+        }
+
+        // Step past the non-fillable pixel that terminated the span.
+        cursor++;
+        // Skip further non-fillable pixels within the range to find the next span.
+        while (cursor <= rangeX2 && !shouldFillAt(row, cursor))
+          cursor++;
+        // Subsequent spans in this row have no left extension (any fillable pixels
+        // to their left would have been swept up by the outer left-extension above).
+        spanLeft = cursor;
+        isFirstSpan = false;
       }
     }
   }

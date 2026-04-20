@@ -178,6 +178,26 @@ void VGA64Controller::absDrawLine(int X1, int Y1, int X2, int Y2, RGB888 color)
 }
 
 
+void VGA64Controller::absFillRowScan(FillRowParams const & params, Rect & updateRect)
+{
+  genericFillRowScan(params, updateRect,
+                     getPixelLambda(PaintMode::Set),
+                     [&] (int y) { return (uint8_t*) m_viewPort[y]; },
+                     [&] (uint8_t * row, int x) -> int { return VGA_PIXELINROW(row, x); }
+                     );
+}
+
+
+void VGA64Controller::absFloodFill(FillRowParams const & params, Rect & updateRect)
+{
+  genericFloodFill(params, updateRect,
+                   getPixelLambda(PaintMode::Set),
+                   [&] (int y) { return (uint8_t*) m_viewPort[y]; },
+                   [&] (uint8_t * row, int x) -> int { return VGA_PIXELINROW(row, x); }
+                   );
+}
+
+
 // parameters not checked
 void VGA64Controller::fillRow(int y, int x1, int x2, RGB888 color)
 {
@@ -286,6 +306,13 @@ void VGA64Controller::drawEllipse(Size const & size, Rect & updateRect)
 {
   auto mode = paintState().paintOptions.mode;
   genericDrawEllipse(size, updateRect, getPixelLambda(mode), setPixelLambda(mode));
+}
+
+
+void VGA64Controller::absDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect)
+{
+  auto mode = paintState().paintOptions.mode;
+  genericDrawEllipseSheared(params, updateRect, getPixelLambda(mode), setPixelLambda(mode));
 }
 
 

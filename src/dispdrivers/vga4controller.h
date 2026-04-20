@@ -194,6 +194,9 @@ private:
 
   // abstract method of BitmappedDisplayController
   void absDrawLine(int X1, int Y1, int X2, int Y2, RGB888 color);
+  void absFillRowScan(FillRowParams const & params, Rect & updateRect);
+  void absFloodFill(FillRowParams const & params, Rect & updateRect);
+  void absDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect);
 
   // abstract method of BitmappedDisplayController
   int getBitmapSavePixelSize() { return 1; }
