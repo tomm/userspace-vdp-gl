@@ -183,6 +183,9 @@ private:
   void setPixelAt(PixelDesc const & pixelDesc, Rect & updateRect);
 
   // abstract method of BitmappedDisplayController
+  virtual void absDrawEllipseSheared(EllipseShearedParams const & params, Rect & updateRect) {}
+
+  // abstract method of BitmappedDisplayController
   void drawEllipse(Size const & size, Rect & updateRect);
 
   // abstract method of BitmappedDisplayController

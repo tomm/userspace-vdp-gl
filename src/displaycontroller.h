@@ -43,6 +43,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <atomic>
+#include <cmath>
 
 #include <mat.h>
 #include <dspm_mult.h>

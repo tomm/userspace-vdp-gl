@@ -703,6 +703,7 @@ private:
 
 class LightMemoryPool {
 public:
+  LightMemoryPool() = default;
   LightMemoryPool(int poolSize);
   ~LightMemoryPool();
   void * alloc(int size);
