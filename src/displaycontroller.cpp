@@ -482,6 +482,7 @@ int BitmappedDisplayController::queueSize = FABGLIB_DEFAULT_DISPLAYCONTROLLER_QU
 
 
 BitmappedDisplayController::BitmappedDisplayController()
+  : m_primDynMemPool(FABGLIB_PRIMITIVES_DYNBUFFERS_SIZE)
 {
   m_execQueue                           = nullptr;
   m_backgroundPrimitiveExecutionEnabled = true;
