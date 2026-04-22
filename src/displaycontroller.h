@@ -1061,6 +1061,9 @@ public:
 
   virtual void readScreen(Rect const & rect, RGB888 * destBuf) = 0;
 
+#ifdef USERSPACE
+  virtual void readEmulatorScreen(RGB888 * destBuf) = 0;
+#endif /* USERSPACE */
 
   // statics (used for common default properties)
 

@@ -91,6 +91,10 @@ public:
 
   void readScreen(Rect const & rect, RGB888 * destBuf);
 
+#ifdef USERSPACE
+  void readEmulatorScreen(RGB888 * destBuf);
+#endif /* USERSPACE */
+
   /**
    * @brief Determines color of specified palette item
    *

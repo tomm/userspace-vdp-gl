@@ -663,6 +663,13 @@ void IRAM_ATTR VGAController::copyRect(Rect const & source, Rect & updateRect)
                  );
 }
 
+// no bounds check is done!
+void VGAController::readEmulatorScreen(RGB888 * destBuf)
+{
+  // should be using vga64controller
+  assert(false);
+}
+
 
 // no bounds check is done!
 void VGAController::readScreen(Rect const & rect, RGB888 * destBuf)

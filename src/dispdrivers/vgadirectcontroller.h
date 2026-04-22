@@ -107,6 +107,10 @@ public:
 
   void readScreen(Rect const & rect, RGB888 * destBuf);
 
+#ifdef USERSPACE
+  void readEmulatorScreen(RGB888 * destBuf);
+#endif /* USERSPACE */
+
   /**
    * @brief Sets the callback used when VGADirectController needs to prepare a new scanline to be sent to the VGA output.
    *

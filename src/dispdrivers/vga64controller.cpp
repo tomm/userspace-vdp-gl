@@ -561,6 +561,32 @@ void VGA64Controller::readScreen(Rect const & rect, RGB888 * destBuf)
   }
 }
 
+// no bounds check is done!
+void VGA64Controller::readEmulatorScreen(RGB888 * destBuf)
+{
+  uint8_t scanline_buf[1280];
+  const auto width = getScreenWidth();
+  const auto height = getScreenHeight();
+  assert(width <= 1280);
+
+  this->frameCounter++;
+  auto frontbuffer = isDoubleBuffered() ? m_viewPortVisible : m_viewPort;
+  for (int y = 0; y < height; ++y) {
+    uint8_t * row = (uint8_t*) frontbuffer[y];
+
+    for (int x = 0; x < width; ++x) {
+      uint8_t rawpix = VGA_PIXELINROW(row, x);
+      scanline_buf[x] = rawpix;
+    }
+
+    this->decorateScanLinePixels(scanline_buf, y);
+
+    for (int x = 0; x < width; ++x, ++destBuf) {
+      const auto rawpix = scanline_buf[x];
+      *destBuf = RGB888((rawpix & 3) * 85, ((rawpix >> 2) & 3) * 85, ((rawpix >> 4) & 3) * 85);
+    }
+  }
+}
 
 void VGA64Controller::rawDrawBitmap_Native(int destX, int destY, Bitmap const * bitmap, int X1, int Y1, int XCount, int YCount)
 {

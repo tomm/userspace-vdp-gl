@@ -298,6 +298,20 @@ void VGADirectController::readScreen(Rect const & rect, RGB888 * destBuf)
   }
 }
 
+void VGADirectController::readEmulatorScreen(RGB888 * destBuf)
+{
+  const auto width = getScreenWidth();
+  const auto height = getScreenHeight();
+
+  for (int y = 0; y < height; ++y) {
+    m_drawScanlineCallback(m_drawScanlineArg, m_lines[0], y);
+    for (int x = 0; x < width; ++x, ++destBuf) {
+      uint8_t rawpix = VGA_PIXELINROW(m_lines[0], x);
+      *destBuf = RGB888((rawpix & 3) * 85, ((rawpix >> 2) & 3) * 85, ((rawpix >> 4) & 3) * 85);
+    }
+  }
+}
+
 
 void VGADirectController::rawDrawBitmap_Native(int destX, int destY, Bitmap const * bitmap, int X1, int Y1, int XCount, int YCount)
 {

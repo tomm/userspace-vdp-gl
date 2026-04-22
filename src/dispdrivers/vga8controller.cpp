@@ -553,6 +553,33 @@ void VGA8Controller::readScreen(Rect const & rect, RGB888 * destBuf)
   }
 }
 
+void VGA8Controller::readEmulatorScreen(RGB888 * destBuf)
+{
+  uint8_t scanline_buf[1280];
+  const auto width = getScreenWidth();
+  const auto height = getScreenHeight();
+  assert(width <= 1280);
+
+  this->frameCounter++;
+  auto frontbuffer = isDoubleBuffered() ? m_viewPortVisible : m_viewPort;
+  for (int y = 0; y < height; ++y) {
+    uint8_t * row = (uint8_t*) frontbuffer[y];
+
+    for (int x = 0; x < width; ++x) {
+      const RGB222 v = m_palette[VGA8_GETPIXELINROW(row, x)];
+      scanline_buf[x] = v.R << 4 | v.G << 2 | v.B;
+    }
+
+    this->decorateScanLinePixels(scanline_buf, y);
+
+    for (int x = 0; x < width; ++x, ++destBuf) {
+      const auto rawpix = scanline_buf[x];
+      *destBuf = RGB888((rawpix & 3) * 85, ((rawpix >> 2) & 3) * 85, ((rawpix >> 4) & 3) * 85);
+    }
+  }
+}
+
+
 
 void VGA8Controller::rawDrawBitmap_Native(int destX, int destY, Bitmap const * bitmap, int X1, int Y1, int XCount, int YCount)
 {
