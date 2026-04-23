@@ -49,12 +49,17 @@ int HardwareSerial::readBytes(uint8_t *buffer, int len) {
 	return len;
 }
 size_t HardwareSerial::write(uint8_t c) {
-	m_buf_out.push(c);
-	return 1;
+	if (availableForWrite()) {
+		m_buf_out.push(c);
+		return 1;
+	} else {
+		return 0;
+	}
 }
 void HardwareSerial::writeToInQueue(uint8_t c) {
 	// hard buffer limit of 2 x m_cts_threshold
-	if (m_buf_in.size() < 2*m_cts_threshold) {
+	if (m_buf_in.size() < m_buf_in.capacity() &&
+	    m_buf_in.size() < 2*m_cts_threshold) {
 		m_buf_in.push(c);
 	}
 }

@@ -42,7 +42,7 @@ struct HardwareSerial: public Stream {
     void begin(int, int, int, int) {}
     void setPins(int, int, int, int) {}
     void print(const char *) {}
-    int availableForWrite() { return 1; }
+    int availableForWrite() { return m_buf_out.size() < m_buf_out.capacity() ? 1 : 0; }
 
     void writeToInQueue(uint8_t b);
     bool readFromOutQueue(uint8_t *out);
