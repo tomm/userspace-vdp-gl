@@ -607,8 +607,8 @@ void VGA16Controller::readScreen(Rect const & rect, RGB888 * destBuf)
 void VGA16Controller::readEmulatorScreen(RGB888 * destBuf)
 {
   uint8_t scanline_buf[1280];
-  const auto width = getScreenWidth();
-  const auto height = getScreenHeight();
+  const auto width = getViewPortWidth();
+  const auto height = getViewPortHeight();
   assert(width <= 1280);
 
   this->frameCounter++;
@@ -618,13 +618,13 @@ void VGA16Controller::readEmulatorScreen(RGB888 * destBuf)
 
     for (int x = 0; x < width; ++x) {
       const RGB222 v = m_palette[VGA16_GETPIXELINROW(row, x)];
-      scanline_buf[x] = v.R << 4 | v.G << 2 | v.B;
+      scanline_buf[x ^ 2] = *(uint8_t*)(RGB222*)&v;
     }
 
     this->decorateScanLinePixels(scanline_buf, y);
 
     for (int x = 0; x < width; ++x, ++destBuf) {
-      const auto rawpix = scanline_buf[x];
+      const uint8_t rawpix = VGA_PIXELINROW(scanline_buf, x);
       *destBuf = RGB888((rawpix & 3) * 85, ((rawpix >> 2) & 3) * 85, ((rawpix >> 4) & 3) * 85);
     }
   }
