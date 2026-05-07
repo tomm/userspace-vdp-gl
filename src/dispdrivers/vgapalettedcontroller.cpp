@@ -285,16 +285,19 @@ bool VGAPalettedController::createPalette(uint16_t paletteId)
   return true;
 }
 
-
 void VGAPalettedController::deletePalette(uint16_t paletteId)
 {
   if (paletteId == 0) {
     return;
   }
   if (paletteId == 65535) {
+    auto to_delete = std::vector<uint16_t>();
     // iterate over all palettes and delete them using deletePalette
-    for (auto it = m_signalMaps.begin(); it != m_signalMaps.end(); ++it) {
-      deletePalette(it->first);
+    for (auto it = m_signalMaps.cbegin(); it != m_signalMaps.cend(); ++it) {
+      to_delete.push_back(it->first);
+    }
+    for (auto it = to_delete.begin(); it != to_delete.end(); ++it) {
+      deletePalette(*it);
     }
     return;
   }
