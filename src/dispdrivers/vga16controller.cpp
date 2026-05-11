@@ -611,15 +611,57 @@ void VGA16Controller::readEmulatorScreen(RGB888 * destBuf)
   const auto height = getViewPortHeight();
   assert(width <= 1280);
 
+  m_currentSignalItem = m_signalList;
+
   this->frameCounter++;
   auto frontbuffer = isDoubleBuffered() ? m_viewPortVisible : m_viewPort;
   for (int y = 0; y < height; ++y) {
-    uint8_t * row = (uint8_t*) frontbuffer[y];
+    uint8_t *src = (uint8_t*) frontbuffer[y];
+    uint16_t *dest = (uint16_t*)scanline_buf;
 
+    auto const packedPaletteIndexPair_to_signals = (uint16_t *) getSignalsForScanline(y);
+
+    // optimization warn: horizontal resolution must be a multiple of 16!
+    for (int col = 0; col < width; col += 16) {
+
+      auto src1 = *(src + 0);
+      auto src2 = *(src + 1);
+      auto src3 = *(src + 2);
+      auto src4 = *(src + 3);
+      auto src5 = *(src + 4);
+      auto src6 = *(src + 5);
+      auto src7 = *(src + 6);
+      auto src8 = *(src + 7);
+
+      //PSRAM_HACK;
+
+      auto v1 = packedPaletteIndexPair_to_signals[src1];
+      auto v2 = packedPaletteIndexPair_to_signals[src2];
+      auto v3 = packedPaletteIndexPair_to_signals[src3];
+      auto v4 = packedPaletteIndexPair_to_signals[src4];
+      auto v5 = packedPaletteIndexPair_to_signals[src5];
+      auto v6 = packedPaletteIndexPair_to_signals[src6];
+      auto v7 = packedPaletteIndexPair_to_signals[src7];
+      auto v8 = packedPaletteIndexPair_to_signals[src8];
+
+      *(dest + 1) = v1;
+      *(dest    ) = v2;
+      *(dest + 3) = v3;
+      *(dest + 2) = v4;
+      *(dest + 5) = v5;
+      *(dest + 4) = v6;
+      *(dest + 7) = v7;
+      *(dest + 6) = v8;
+
+      dest += 8;
+      src += 8;
+    }
+    /*
     for (int x = 0; x < width; ++x) {
       const RGB222 v = m_palette[VGA16_GETPIXELINROW(row, x)];
       scanline_buf[x ^ 2] = *(uint8_t*)(RGB222*)&v;
     }
+    */
 
     this->decorateScanLinePixels(scanline_buf, y);
 

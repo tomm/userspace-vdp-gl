@@ -613,14 +613,38 @@ void VGA4Controller::readEmulatorScreen(RGB888 * destBuf)
   const auto height = getViewPortHeight();
   assert(width <= 1280);
 
+  m_currentSignalItem = m_signalList;
+
   this->frameCounter++;
   auto frontbuffer = isDoubleBuffered() ? m_viewPortVisible : m_viewPort;
   for (int y = 0; y < height; ++y) {
-    uint8_t * row = (uint8_t*) frontbuffer[y];
+    uint8_t *src = (uint8_t*) frontbuffer[y];
+    uint32_t *dest = (uint32_t*)scanline_buf;
 
-    for (int x = 0; x < width; ++x) {
-      const RGB222 v = m_palette[VGA4_GETPIXELINROW(row, x)];
-      scanline_buf[x ^ 2] = *(uint8_t*)(RGB222*)&v;
+    auto const packedPaletteIndexQuad_to_signals = (uint32_t *) getSignalsForScanline(y);
+
+    // optimization warn: horizontal resolution must be a multiple of 16!
+    for (int col = 0; col < width; col += 16) {
+
+      auto src1 = *(src + 0);
+      auto src2 = *(src + 1);
+      auto src3 = *(src + 2);
+      auto src4 = *(src + 3);
+
+      //PSRAM_HACK;
+
+      auto v1 = packedPaletteIndexQuad_to_signals[src1];
+      auto v2 = packedPaletteIndexQuad_to_signals[src2];
+      auto v3 = packedPaletteIndexQuad_to_signals[src3];
+      auto v4 = packedPaletteIndexQuad_to_signals[src4];
+
+      *(dest + 0) = v1;
+      *(dest + 1) = v2;
+      *(dest + 2) = v3;
+      *(dest + 3) = v4;
+
+      dest += 4;
+      src += 4;
     }
 
     this->decorateScanLinePixels(scanline_buf, y);

@@ -583,15 +583,34 @@ void VGA2Controller::readEmulatorScreen(RGB888 * destBuf)
   const auto width = getViewPortWidth();
   const auto height = getViewPortHeight();
   assert(width <= 1280);
+    
+  m_currentSignalItem = m_signalList;
 
   this->frameCounter++;
   auto frontbuffer = isDoubleBuffered() ? m_viewPortVisible : m_viewPort;
   for (int y = 0; y < height; ++y) {
-    uint8_t * row = (uint8_t*) frontbuffer[y];
+    uint8_t *src = (uint8_t*) frontbuffer[y];
+    uint64_t *dest = (uint64_t*)scanline_buf;
 
-    for (int x = 0; x < width; ++x) {
-      const RGB222 v = m_palette[VGA2_GETPIXELINROW(row, x)];
-      scanline_buf[x ^ 2] = *(uint8_t*)(RGB222*)&v;
+    auto const packedPaletteIndexOctet_to_signals = (uint64_t *) getSignalsForScanline(y);
+
+    // optimization warn: horizontal resolution must be a multiple of 16!
+    for (int col = 0; col < width; col += 16) {
+
+      auto src1 = *(src + 0);
+      auto src2 = *(src + 1);
+
+      PSRAM_HACK;
+
+      auto v1 = packedPaletteIndexOctet_to_signals[src1];
+      auto v2 = packedPaletteIndexOctet_to_signals[src2];
+
+      *(dest + 0) = v1;
+      *(dest + 1) = v2;
+
+      dest += 2;
+      src += 2;
+      
     }
 
     this->decorateScanLinePixels(scanline_buf, y);
