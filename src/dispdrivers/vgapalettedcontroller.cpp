@@ -318,9 +318,11 @@ void VGAPalettedController::deletePalette(uint16_t paletteId)
 
 void VGAPalettedController::deleteSignalList(PaletteListItem * item)
 {
-  if (item) {
-    deleteSignalList(item->next);
+	auto lock = fabgl::VGABaseController::acquireLock();
+  while (item) {
+    PaletteListItem *next = item->next;
     heap_caps_free(item);
+    item = next;
   }
 }
 
