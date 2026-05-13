@@ -52,9 +52,7 @@ Mouse::Mouse()
     m_wheelAcceleration(60000),
     m_absoluteQueue(nullptr),
     m_updateDisplayController(nullptr) {
-#ifndef USERSPACE
-      m_mouseType = Intellimouse;
-#endif /* !USERSPACE */
+    m_mouseType = Intellimouse;
 }
 
 
