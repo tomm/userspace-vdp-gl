@@ -10,12 +10,17 @@ struct HardwareSerial: public Stream {
     HardwareSerial():
         timeout_ms(0),
         m_buf_in(512),
-        m_buf_out(512)
+        m_buf_out(512),
+        m_hacky_debug_output_to_stdout(false)
     {}
     HardwareSerial(int):
+        // DBGSerial is initialized with this constructor,
+        // and Serial2 ("uart0") is not, so abuse this fact
+        // to enable host stdout output for DBGSerial
         timeout_ms(0),
         m_buf_in(512),
-        m_buf_out(512)
+        m_buf_out(512),
+        m_hacky_debug_output_to_stdout(true)
     {}
 
     int available() override;
@@ -53,4 +58,5 @@ private:
     rigtorp::SPSCQueue<uint8_t> m_buf_out;
     int timeout_ms;
     int m_cts_threshold;
+    bool m_hacky_debug_output_to_stdout;
 };

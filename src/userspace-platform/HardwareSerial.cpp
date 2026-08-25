@@ -49,6 +49,10 @@ int HardwareSerial::readBytes(uint8_t *buffer, int len) {
 	return len;
 }
 size_t HardwareSerial::write(uint8_t c) {
+	if (m_hacky_debug_output_to_stdout) {
+		putchar(c);
+		return 1;
+	}
 	if (availableForWrite()) {
 		m_buf_out.push(c);
 		return 1;
