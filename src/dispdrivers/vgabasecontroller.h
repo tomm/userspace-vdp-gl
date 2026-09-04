@@ -297,7 +297,7 @@ public:
   uint8_t createBlankRawPixel()                  { return m_HVSync; }
 
   static std::unique_lock<std::mutex> acquireLock() {
-    return std::unique_lock<std::mutex>(m_bigLock);
+    return std::unique_lock<std::mutex>(*m_bigLock);
   }
   uint32_t     frameCounter = 0;
 
@@ -418,7 +418,14 @@ private:
 
   int16_t                m_rawFrameHeight;
 
-  static std::mutex             m_bigLock;
+  // Deliberately never destroyed (same reasoning as EspRam/_ram in
+  // heap_allocator.cpp): as a plain static std::mutex, its destruction
+  // order relative to other statics (e.g. the global VGAController
+  // unique_ptr) isn't guaranteed, and acquireLock() being called from a
+  // VGABaseController-derived destructor during exit()'s global teardown
+  // hit exactly that - locking an already-destroyed mutex. A pointer has
+  // no destructor of its own, so there's nothing left to race.
+  static std::mutex *           m_bigLock;
 };
 
 
