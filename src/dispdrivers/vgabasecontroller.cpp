@@ -60,7 +60,7 @@ namespace fabgl {
 #endif
 
 VGABaseController *VGABaseController::activeController = nullptr;
-std::mutex VGABaseController::m_bigLock;
+std::mutex *VGABaseController::m_bigLock = new std::mutex();
 volatile uint8_t * * VGABaseController::s_viewPort;
 volatile uint8_t * * VGABaseController::s_viewPortVisible;
 lldesc_t volatile *  VGABaseController::s_frameResetDesc;

@@ -297,7 +297,7 @@ public:
   uint8_t createBlankRawPixel()                  { return m_HVSync; }
 
   static std::unique_lock<std::mutex> acquireLock() {
-    return std::unique_lock<std::mutex>(m_bigLock);
+    return std::unique_lock<std::mutex>(*m_bigLock);
   }
   uint32_t     frameCounter = 0;
 
@@ -418,7 +418,8 @@ private:
 
   int16_t                m_rawFrameHeight;
 
-  static std::mutex             m_bigLock;
+  // Deliberately never destroyed to avoid shutdown race conditions
+  static std::mutex *    m_bigLock;
 };
 
 
