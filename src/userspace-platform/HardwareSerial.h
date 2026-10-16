@@ -1,10 +1,16 @@
 #pragma once
 
 #include <cstring>
+#include <cstdio>
 #include <stdint.h>
 #include "SPSCQueue.h"
 #include <algorithm>
 #include "Stream.h"
+
+// When set, the serials that would write to host stdout (ie DBGSerial) write
+// here instead. Lets the emulator capture VDU 2 "printer" output into a file,
+// separate from the rest of the process's stdout.
+extern FILE *dbg_serial_sink;
 
 struct HardwareSerial: public Stream {
     HardwareSerial():

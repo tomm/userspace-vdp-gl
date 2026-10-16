@@ -4,6 +4,9 @@
 
 HardwareSerial Serial2;
 
+// Set by the host through vdp_set_printer_file() (rust_glue.cpp)
+FILE *dbg_serial_sink = nullptr;
+
 // rust_glue.cpp
 extern bool is_fabgl_terminating;
 
@@ -50,7 +53,11 @@ int HardwareSerial::readBytes(uint8_t *buffer, int len) {
 }
 size_t HardwareSerial::write(uint8_t c) {
 	if (m_hacky_debug_output_to_stdout) {
-		putchar(c);
+		if (dbg_serial_sink) {
+			fputc(c, dbg_serial_sink);
+		} else {
+			putchar(c);
+		}
 		return 1;
 	}
 	if (availableForWrite()) {
